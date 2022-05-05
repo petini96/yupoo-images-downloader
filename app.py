@@ -1,23 +1,28 @@
 import asyncio
 import aiohttp
+import aiofiles
 import requests
 from bs4 import BeautifulSoup
 import lxml
 import regex
-from time import time, sleep
+from time import perf_counter, sleep
 from config import URL,PATH
 
 class YupooDownloader():
 	def __init__(self):
+		self.start_time = perf_counter()
 		self.albums = {}
 		self.pages = self.get_pages()
-		self.timeout = aiohttp.ClientTimeout(total=35)
+		self.headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.54 Safari/537.36', 'referer': "https://yupoo.com/"}
+		self.timeout = aiohttp.ClientTimeout(total=25)
 
 	async def main(self):
-		session = aiohttp.ClientSession(headers={'referer': "https://yupoo.com/"})
+		session = aiohttp.ClientSession(headers=self.headers)
 		async with session as self.session:
 			#getting albums from pages resp
 			async def _(tasks, function):
+				print(len(tasks))
 				errors = []
 				resp = await asyncio.gather(*tasks)
 				for r in resp:
@@ -26,7 +31,7 @@ class YupooDownloader():
 							if 'get_album ' in repr(function):
 								self.__.append(r)
 								# print(f"zz:{len(self.__)}")
-								if len(self.__) == 60:
+								if len(self.__) == 30:
 									print('ax')
 									self.__ = []
 							await function(r)
@@ -34,7 +39,6 @@ class YupooDownloader():
 							errors.append(r[2])
 					else:
 						errors.append(r[0])
-				print(len(errors))
 				if len(errors) > 0:
 					tasks = []
 					for error in errors:
@@ -50,29 +54,36 @@ class YupooDownloader():
 
 			#getting images from albums resp
 			self.__ = []
+			tasks = []
 			for page in self.albums:
-				tasks = []
 				for album in self.albums[page]:
 					tasks.append(asyncio.ensure_future(self.async_req(self.albums[page][album]['album_link'])))
-				print(len(tasks))
+					# if len(tasks) == 58:
 				await _(tasks, self.get_album)
-				print('x')
+				tasks=[]
+
+			print(self.albums)
+			print(perf_counter()-self.start_time)
+			import json
+			async with aiofiles.open('albums.json', 'w') as f:
+				json.dump(self.albums,f)
 				
 
 	async def async_req(self, url):
 		try:
-			async with self.session.get(url) as resp:
+			async with self.session.get(url, timeout=self.timeout) as resp:
 				return [await resp.text(), resp.status, url]
 		except Exception as e:
 			return [url]
-			# print(e)
-			# print('error - async_req')
 
 	def get_pages(self):
 		try:
 			url = f"{URL}/albums?tab=gallery&page=1"
+			print('d')
 			resp = requests.get(url)
+			print('e')
 			if resp.status_code != 200:
+				print('b')
 				sleep(1)
 				self.get_pages()
 
@@ -116,11 +127,22 @@ class YupooDownloader():
 						continue
 
 	async def get_album(self, r):
+		keys = await self.find_key(self.albums, r[2])
 		soup = BeautifulSoup(r[0].encode("ascii", "ignore").decode("utf-8"), "lxml")
 		album_imgs_links = []
 		for img in soup.find_all("div", {"class": "showalbum__children"}):
 			img = img.find("img")
 			src = img.get("data-origin-src")
 			album_imgs_links.append(f"https:{src}")
+		self.albums[keys[0]][keys[1]]['imgs'] = album_imgs_links
+
+	async def find_key(self, d, value):
+		for k,v in d.items():
+				if isinstance(v, dict):
+						p = await self.find_key(v, value)
+						if p:
+							return [k] + p
+				elif v == value:
+						return [k]
 
 asyncio.run(YupooDownloader().main())
