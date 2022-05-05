@@ -25,14 +25,16 @@ class YupooDownloader():
 						if r[1] == 200:
 							if 'get_album ' in repr(function):
 								self.__.append(r)
+								# print(f"zz:{len(self.__)}")
 								if len(self.__) == 60:
-									print('a')
-									self.__ ==0
+									print('ax')
+									self.__ = []
 							await function(r)
 						else:
 							errors.append(r[2])
 					else:
 						errors.append(r[0])
+				print(len(errors))
 				if len(errors) > 0:
 					tasks = []
 					for error in errors:
@@ -60,18 +62,9 @@ class YupooDownloader():
 	async def async_req(self, url):
 		try:
 			async with self.session.get(url) as resp:
-				try:
-					if resp == None:
-						print('c')
-					if resp != None:
-						return [await resp.text(), resp.status, url]
-					return [url]
-				except Exception as e:
-					print(type(resp))
-					print(resp)
-					print(e)
+				return [await resp.text(), resp.status, url]
 		except Exception as e:
-			i =1
+			return [url]
 			# print(e)
 			# print('error - async_req')
 
