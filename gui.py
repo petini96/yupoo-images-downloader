@@ -2,6 +2,7 @@ import os
 
 from app import YupooDownloader
 import asyncio
+asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 from config import URLS as urls
 clear = lambda: os.system("cls")
 clear()

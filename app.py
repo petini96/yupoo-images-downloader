@@ -19,17 +19,18 @@ class YupooDownloader():
 		self.start_time = perf_counter()
 		self.albums = {}
 		self.pages = self.get_pages()
+
 		self.headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.54 Safari/537.36', 'referer': "https://yupoo.com/"}
-		# self.timeout_connect = [25]
-		# self.connect_control = [0]
-		# self.connect_errors = [0]
+		self.timeout_connect = [0.1]
+		self.connect_control = [0]
+		self.connect_errors = [0]
 
-		# self.timeout_read = [30]
-		# self.read_control = [0]
-		# self.read_errors = [0]
+		self.timeout_read = [0.1]
+		self.read_control = [0]
+		self.read_errors = [0]
 
-		self.timeout = aiohttp.ClientTimeout(connect=30, sock_read=30)
+		self.timeout = aiohttp.ClientTimeout(connect=self.timeout_connect[0], sock_read=self.timeout_read[0])
 
 	async def main(self):
 		session = aiohttp.ClientSession(headers=self.headers)
@@ -94,48 +95,38 @@ class YupooDownloader():
 			print(perf_counter()-self.start_time)
 
 	async def async_req(self, url, function = None):
-		try:
-			# def auto_timeout(timeout, control, errors, e, add):
-			# 	if errors[0] != 0:
-			# 		if control[0] // errors[0] <= e:
-			# 			timeout[0] += add
-			# 			control[0] = 0
-			# 			errors[0] = 0
-			# 			self.timeout = aiohttp.ClientTimeout(connect=self.timeout_connect[0], sock_read=self.timeout_read[0])
+		def auto_timeout(timeout, control, errors, e, add):
+			if errors[0] != 0:
+				if control[0] // errors[0] <= e:
+					timeout[0] += add
+					control[0] = 0
+					errors[0] = 0
+					self.timeout = aiohttp.ClientTimeout(connect=self.timeout_connect[0], sock_read=self.timeout_read[0])
+			else:
+				control[0] = 0
 
+		if self.connect_control[0] == 10:
+			auto_timeout(self.timeout_connect, self.connect_control, self.connect_errors, 5, 4)
+		if self.read_control[0] == 10:
+			auto_timeout(self.timeout_read, self.read_control, self.read_errors, 5, 4)
+
+		self.connect_control[0] +=1
+		self.read_control[0] +=1
+
+		try:
 			async with self.session.get(url, timeout=self.timeout, headers=self.headers) as resp:
 				if function == None:
-					# self.connect_control[0] +=1
-					# self.read_control[0] +=1
-
-					# if self.connect_control[0] == 10:
-					# 	auto_timeout(self.timeout_connect, self.connect_control, self.connect_errors, 5, 4)
-					# 	print(self.timeout)
-
-					# elif self.read_control[0] == 10:
-					# 	auto_timeout(self.timeout_read, self.read_control, self.read_errors, 5, 4)
-					# 	print(self.timeout)
-
+					self.progress += 1
 					return [await resp.text(), resp.status, url]
 				else:
 					return [await resp.read(), resp.status, url]
 		except Exception as e:
-			# self.read_control[0] +=1
-			# self.connect_control[0] +=1
-			# if "Timeout on reading data from socket" in str(e):
-			# 	self.read_errors[0] += 1
-			# elif "Connection timeout to host" in str(e):
-			# 	self.connect_errors[0] += 1
-
-			# if self.connect_control[0] == 10:
-			# 	auto_timeout(self.timeout_connect, self.connect_control, self.connect_errors, 5, 4)
-			# 	print(self.timeout)
-
-			# elif self.read_control[0] == 10:
-			# 	auto_timeout(self.timeout_read, self.read_control, self.read_errors, 5, 4)
-			# 	print(self.timeout)
-			# return await self.async_req(url, function)
-			return [url]
+			if "Timeout on reading data from socket" in str(e):
+				self.read_errors[0] += 1
+			elif "Connection timeout to host" in str(e):
+				self.connect_errors[0] += 1
+			return await self.async_req(url, function)
+			# return [url]
 
 	def get_pages(self):
 		try:
@@ -227,26 +218,12 @@ class YupooDownloader():
 			print(e)
 
 	async def _(self, tasks, function):
-		print(len(tasks))
-		errors = []
+		self.progress = 0
 		resp = await asyncio.gather(*tasks)
 		for r in resp:
 			if len(r) != 1:
 				if r[1] == 200:
 						await function(r)
-				else:
-					errors.append(r[2])
-			else:
-				errors.append(r[0])
-		if len(errors) > 0:
-			tasks = []
-			for error in errors:
-				if 'get_imgs' in repr(function):
-					tasks.append(asyncio.ensure_future(self.async_req(error, 'get_imgs')))
-				else:
-					tasks.append(asyncio.ensure_future(self.async_req(error)))
-			await asyncio.sleep(1.6)
-			await self._(tasks, function)
 
 	async def parse_title(self, title):
 		title = title.replace('.', '_').replace('/', '_').replace(':', '').replace('"', '').replace("'", '').replace('*','')
