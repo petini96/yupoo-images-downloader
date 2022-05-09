@@ -21,15 +21,15 @@ class YupooDownloader():
 		self.pages = self.get_pages()
 		self.headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.54 Safari/537.36', 'referer': "https://yupoo.com/"}
-		self.timeout_connect = [0]
-		self.connect_control = [0]
-		self.connect_errors = [0]
+		# self.timeout_connect = [25]
+		# self.connect_control = [0]
+		# self.connect_errors = [0]
 
-		self.timeout_read = [0]
-		self.read_control = [0]
-		self.read_errors = [0]
+		# self.timeout_read = [30]
+		# self.read_control = [0]
+		# self.read_errors = [0]
 
-		self.timeout = aiohttp.ClientTimeout(connect=self.timeout_connect[0], sock_read=self.timeout_read[0])
+		self.timeout = aiohttp.ClientTimeout(connect=30, sock_read=30)
 
 	async def main(self):
 		session = aiohttp.ClientSession(headers=self.headers)
@@ -57,48 +57,84 @@ class YupooDownloader():
 					tasks.append(asyncio.ensure_future(self.async_req(url)))
 				await self._(tasks, self.get_album)
 
+			
+					
+			#downloading imgs in albums
+			print()
+			print("downloading imgs in albums")
+			tasks=[]
+			if self.all_albums:
+				for page in self.albums:
+					for album in self.albums[page]:
+						for img in self.albums[page][album]['imgs']:
+							img_link = img
+							img_title = re.findall(r'/((?:(?!/).)*)$', img_link)[0].split('.')[0] #/((?:(?!/).)*)$
+							path = f"{PATH}/photos/{album}/{img_title}.jpg"
+							if os.path.exists(path) == True:
+								print(f'{img_title} já existe')
+								continue
+							tasks.append(asyncio.ensure_future(self.async_req(img_link, 'get_imgs')))
+					if len(tasks) > 0:
+						await self._(tasks, self.get_imgs)
+			else:
+					for album in self.albums:
+						for img in self.albums[album]['imgs']:
+							img_link = img
+							img_title = re.findall(r'/((?:(?!/).)*)$', img_link)[0].split('.')[0] #/((?:(?!/).)*)$
+							path = f"{PATH}/photos/{album}/{img_title}.jpg"
+							if os.path.exists(path) == True:
+								print(f'{img_title} já existe')
+								continue
+							tasks.append(asyncio.ensure_future(self.async_req(img_link, 'get_imgs')))
+					if len(tasks) > 0:
+						await self._(tasks, self.get_imgs)
+
+			#####
+			print(self.albums)
+			print(perf_counter()-self.start_time)
+
 	async def async_req(self, url, function = None):
 		try:
-			def auto_timeout(timeout, control, errors, e, add):
-				if errors[0] != 0:
-					if control[0] // errors[0] <= e:
-						timeout[0] += add
-						control[0] = 0
-						errors[0] = 0
-						self.timeout = aiohttp.ClientTimeout(connect=self.timeout_connect[0], sock_read=self.timeout_read[0])
+			# def auto_timeout(timeout, control, errors, e, add):
+			# 	if errors[0] != 0:
+			# 		if control[0] // errors[0] <= e:
+			# 			timeout[0] += add
+			# 			control[0] = 0
+			# 			errors[0] = 0
+			# 			self.timeout = aiohttp.ClientTimeout(connect=self.timeout_connect[0], sock_read=self.timeout_read[0])
 
 			async with self.session.get(url, timeout=self.timeout, headers=self.headers) as resp:
 				if function == None:
-					self.connect_control[0] +=1
-					self.read_control[0] +=1
+					# self.connect_control[0] +=1
+					# self.read_control[0] +=1
 
-					if self.connect_control[0] == 10:
-						auto_timeout(self.timeout_connect, self.connect_control, self.connect_errors, 5, 4)
-						print(self.timeout)
+					# if self.connect_control[0] == 10:
+					# 	auto_timeout(self.timeout_connect, self.connect_control, self.connect_errors, 5, 4)
+					# 	print(self.timeout)
 
-					elif self.read_control[0] == 10:
-						auto_timeout(self.timeout_read, self.read_control, self.read_errors, 5, 4)
-						print(self.timeout)
+					# elif self.read_control[0] == 10:
+					# 	auto_timeout(self.timeout_read, self.read_control, self.read_errors, 5, 4)
+					# 	print(self.timeout)
 
 					return [await resp.text(), resp.status, url]
 				else:
 					return [await resp.read(), resp.status, url]
 		except Exception as e:
-			self.read_control[0] +=1
-			self.connect_control[0] +=1
-			if "Timeout on reading data from socket" in str(e):
-				self.read_errors[0] += 1
-			elif "Connection timeout to host" in str(e):
-				self.connect_errors[0] += 1
+			# self.read_control[0] +=1
+			# self.connect_control[0] +=1
+			# if "Timeout on reading data from socket" in str(e):
+			# 	self.read_errors[0] += 1
+			# elif "Connection timeout to host" in str(e):
+			# 	self.connect_errors[0] += 1
 
-			if self.connect_control[0] == 10:
-				auto_timeout(self.timeout_connect, self.connect_control, self.connect_errors, 5, 4)
-				print(self.timeout)
+			# if self.connect_control[0] == 10:
+			# 	auto_timeout(self.timeout_connect, self.connect_control, self.connect_errors, 5, 4)
+			# 	print(self.timeout)
 
-			elif self.read_control[0] == 10:
-				auto_timeout(self.timeout_read, self.read_control, self.read_errors, 5, 4)
-				print(self.timeout)
-
+			# elif self.read_control[0] == 10:
+			# 	auto_timeout(self.timeout_read, self.read_control, self.read_errors, 5, 4)
+			# 	print(self.timeout)
+			# return await self.async_req(url, function)
 			return [url]
 
 	def get_pages(self):
@@ -150,13 +186,13 @@ class YupooDownloader():
 			src_cover = re.findall('/((?:(?!/).)*)/medium', src_cover)
 		for img in soup.find_all("div", {"class": "showalbum__children"}):
 			img = img.find("img")
-			src = img.get("src") #data-origin-src
-			src_re = re.findall('/((?:(?!/).)*)/((?:(?!/).)*)\.((?:(?!\.).)*)$', src)
-			if len(src_cover) == 0 or src_re[0][0] == "alisports":
+			src = img.get("data-origin-src") #data-origin-src
+			if self.cover:
+				src_re = re.findall('/((?:(?!/).)*)/((?:(?!/).)*)\.((?:(?!\.).)*)$', src)
+				if src_cover[0] == src_re[0][0]:
+					album_imgs_links.append(f"https:{src}")
+					break
 				continue
-			if self.cover == True and src_cover[0] == src_re[0][0]:
-				album_imgs_links.append(f"https:{src}")
-				break
 			elif self.cover == False:
 				album_imgs_links.append(f"https:{src}")
 		if self.all_albums:
@@ -175,7 +211,7 @@ class YupooDownloader():
 		else:
 			album = keys[0]
 		try:
-			img_title = re.findall(r'/((?:(?!/).)*)/small', r[2])[0].split('.')[0] #/((?:(?!/).)*)$
+			img_title = re.findall(r'/((?:(?!/).)*)$', r[2])[0].split('.')[0] #/((?:(?!/).)*)$
 		except:
 			return
 
@@ -212,41 +248,6 @@ class YupooDownloader():
 			await asyncio.sleep(1.6)
 			await self._(tasks, function)
 
-					
-			#downloading imgs in albums
-			print()
-			print("downloading imgs in albums")
-			tasks=[]
-			if self.all_albums:
-				for page in self.albums:
-					for album in self.albums[page]:
-						for img in self.albums[page][album]['imgs']:
-							img_link = img
-							img_title = re.findall(r'/((?:(?!/).)*)/small', img_link)[0].split('.')[0] #/((?:(?!/).)*)$
-							path = f"{PATH}/photos/{album}/{img_title}.jpg"
-							if os.path.exists(path) == True:
-								print(f'{img_title} já existe')
-								continue
-							tasks.append(asyncio.ensure_future(self.async_req(img_link, 'get_imgs')))
-					if len(tasks) > 0:
-						await self._(tasks, self.get_imgs)
-			else:
-					for album in self.albums:
-						for img in self.albums[album]['imgs']:
-							img_link = img
-							img_title = re.findall(r'/((?:(?!/).)*)/small', img_link)[0].split('.')[0] #/((?:(?!/).)*)$
-							path = f"{PATH}/photos/{album}/{img_title}.jpg"
-							if os.path.exists(path) == True:
-								print(f'{img_title} já existe')
-								continue
-							tasks.append(asyncio.ensure_future(self.async_req(img_link, 'get_imgs')))
-					if len(tasks) > 0:
-						await self._(tasks, self.get_imgs)
-
-			#####
-			print(self.albums)
-			print(perf_counter()-self.start_time)
-
 	async def parse_title(self, title):
 		title = title.replace('.', '_').replace('/', '_').replace(':', '').replace('"', '').replace("'", '').replace('*','')
 		it = 0
@@ -274,5 +275,3 @@ class YupooDownloader():
 						return [k]
 				elif v == value:
 						return [k]
-	
-asyncio.run(YupooDownloader(all_albums= False, cover=True).main())
