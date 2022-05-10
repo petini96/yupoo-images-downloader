@@ -8,8 +8,7 @@ from rich.text import Text
 from rich.panel import Panel
 import rich.prompt as prompt
 
-import json
-# from config import URLS as urls
+from config import URLS as urls
 from app import YupooDownloader
 from edit_rich import make_prompt, render_default
 
@@ -20,11 +19,10 @@ class App():
 	def __init__(self):
 		self.console = Console(color_system="auto")
 		self.st1np = self.parse_nick()
-	
+
 	def main(self):
-		self.console.print(self.st1np)
-		self.console.print(Panel.fit("[#ffffff]Considere ajudar o [bold #4912ff]PROJETO[/][/]!\n[#ffffff]Chave [bold u #05a62a]PIX[/]: [bold #00ff73]xxxxxxx[/]", title="[blink #4912ff]***[/]", subtitle="[blink #4912ff]***[/]"))
-		self.console.print("Programa desenvolvido para te ajudar a baixar \nimagens com qualidade para postagem do site da [#66b381]Yupoo[/]!")
+		self.default()
+		self.console.print("\nPrograma desenvolvido para te ajudar a baixar \nimagens com qualidade para postagem do site da [#66b381]Yupoo[/]!")
 		self.console.print("\n[b #6149ab]Opções[/]")
 		self.console.print("[b #baa6ff]1.[/] Baixe todas as imagens de todos os álbuns. ([bold u #c7383f]pesado[/])")
 		self.console.print("[b #baa6ff]2.[/] Baixar apenas a foto principal de todos álbuns.")
@@ -32,26 +30,59 @@ class App():
 		self.console.print("[b #baa6ff]4.[/] Inserir álbuns para baixar apenas a foto principal.")
 
 		self.edit_rich()
-		opt = prompt.Prompt.ask("[b #6149ab]>>[/]  Selecione uma opção", choices=["1", "2", "3", "4"], default="4")
+		opt = prompt.Prompt.ask("\n[b #6149ab]>>[/]  Selecione uma opção", choices=["1", "2", "3", "4"], default="4")
 		# self.console.print('\nCancele a qualquer momento apertando [b u #c7383f]CTRL C[/]!')
+		clear()
+		self.default()
 		self.execute_answer(opt)
 
 	def execute_answer(self, opt):
+		selected_print = lambda option, text: self.console.print(f"\nOpção [b #6149ab]{option}[/] selecionada: [b #baa6ff]{text}[/]")
 		if opt == "1" or opt == "2":
 			if opt == "1":
-				asyncio.run(YupooDownloader(all_albums=True, cover=False).main())
+				selected_print_ = lambda: selected_print("1", "Baixando todas as fotos do catálogo!")
+				selected_print_()
+				self.console.print("\nInsira o link do catálogo.")
+				url = prompt.Prompt.ask("[#6149ab b]link[/]")
+				clear()
+				self.default()
+				selected_print_()
+				asyncio.run(YupooDownloader(all_albums=True, urls=url, cover=False).main())
 			else:
-				asyncio.run(YupooDownloader(all_albums=True, cover=True).main())
+				selected_print_ = lambda: selected_print("2", "Baixando todas as fotos principais do catálogo!")
+				selected_print_()
+				self.console.print("\nInsira o link do catálogo.")
+				url = prompt.Prompt.ask("[#6149ab b]link[/]")
+				clear()
+				self.default()
+				selected_print_()
+				asyncio.run(YupooDownloader(all_albums=True, urls=url, cover=True).main())
 		elif opt == "3" or opt == "4":
-			self.console.print("Insira os links dos álbuns para download. ([#baa6ff]digite [u b]ok[/] para sair[/])")
-			import subprocess
-			subprocess.call('python urls.py', shell=True)
-			with open('urls.json', 'r') as f:
-				urls = json.load(f)
 			if opt == "3":
+				selected_print_ = lambda: selected_print("3", "Baixando todas as fotos dos álbuns selecionados!")
+				selected_print_()
+			else:
+				selected_print_ = lambda: selected_print("4", "Baixando todas as fotos principais dos álbuns selecionados!")
+				selected_print_()
+			self.console.print("\nInsira os links dos álbuns para download. ([#baa6ff]digite [u b]ok[/] para executar![/])")
+			while True:
+				url = prompt.Prompt.ask("[#6149ab b]link[/]")
+				if url == "ok":
+					break
+			if opt == "3":
+				clear()
+				self.default()
+				selected_print_()
 				asyncio.run(YupooDownloader(all_albums=False, urls=urls, cover=False).main())
 			else:
+				clear()
+				self.default()
+				selected_print_()
 				asyncio.run(YupooDownloader(all_albums=False, urls=urls, cover=True).main())
+
+	def default(self):
+		self.console.print(self.st1np)
+		self.console.print(Panel.fit("[#ffffff]Considere ajudar o [bold #4912ff]PROJETO[/][/]!\n[#ffffff]Chave [bold u #05a62a]PIX[/]: [bold #00ff73]xxxxxxx[/]", title="[blink #4912ff]***[/]", subtitle="[blink #4912ff]***[/]"))
 
 	def edit_rich(self):
 		def choices_style(style='prompt.choices'):
