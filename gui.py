@@ -1,15 +1,16 @@
 import os
 import asyncio
 from time import sleep
-asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+# asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 from rich.console import Console
 from rich.text import Text
 from rich.panel import Panel
 import rich.prompt as prompt
 
-from config import URLS as urls
-from main import YupooDownloader
+import json
+# from config import URLS as urls
+from app import YupooDownloader
 from edit_rich import make_prompt, render_default
 
 clear = lambda: os.system("cls")
@@ -43,14 +44,10 @@ class App():
 				asyncio.run(YupooDownloader(all_albums=True, cover=True).main())
 		elif opt == "3" or opt == "4":
 			self.console.print("Insira os links dos álbuns para download. ([#baa6ff]digite [u b]ok[/] para sair[/])")
-			# urls = []
-			while True:
-				url = prompt.Prompt.ask("[#6149ab b]link[/]")
-				if url == "ok":
-					break
-				else:
-					None
-					# urls.append(url)
+			import subprocess
+			subprocess.call('python urls.py', shell=True)
+			with open('urls.json', 'r') as f:
+				urls = json.load(f)
 			if opt == "3":
 				asyncio.run(YupooDownloader(all_albums=False, urls=urls, cover=False).main())
 			else:
