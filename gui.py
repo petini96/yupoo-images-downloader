@@ -1,7 +1,7 @@
 import os
 import asyncio
 from time import sleep
-# asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 from rich.console import Console
 from rich.text import Text

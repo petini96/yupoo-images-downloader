@@ -12,7 +12,7 @@ import json
 from time import perf_counter, sleep
 from alive_progress import alive_bar
 import pathlib
-PATH = str(pathlib.Path(__file__).parent.resolve())
+PATH = str(os.path.join(os.environ["HOMEPATH"], "Desktop")).replace('\\', '/')
 from rich.console import Console
 
 class YupooDownloader():
@@ -28,11 +28,11 @@ class YupooDownloader():
 
 		self.headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.54 Safari/537.36', 'referer': "https://yupoo.com/"}
-		self.timeout_connect = [0.1]
+		self.timeout_connect = [10]
 		self.connect_control = [0]
 		self.connect_errors = [0]
 
-		self.timeout_read = [0.1]
+		self.timeout_read = [10]
 		self.read_control = [0]
 		self.read_errors = [0]
 
@@ -75,7 +75,7 @@ class YupooDownloader():
 					for img in self.albums[page][album]['imgs']:
 						img_link = img
 						img_title = re.findall(r'/((?:(?!/).)*)$', img_link)[0].split('.')[0] #/((?:(?!/).)*)$
-						path = f"{PATH}/fotos/{album}/{img_title}.jpg"
+						path = f"{PATH}/fotos_camisa/{album}/{img_title}.jpg"
 						if os.path.exists(path) == True:
 							continue
 						tasks.append(asyncio.ensure_future(self.async_req(img_link, self.get_imgs)))
@@ -87,7 +87,7 @@ class YupooDownloader():
 					for img in self.albums[album]['imgs']:
 						img_link = img
 						img_title = re.findall(r'/((?:(?!/).)*)$', img_link)[0].split('.')[0] #/((?:(?!/).)*)$
-						path = f"{PATH}/fotos/{album}/{img_title}.jpg"
+						path = f"{PATH}/fotos_camisa/{album}/{img_title}.jpg"
 						if os.path.exists(path) == True:
 							continue
 						tasks.append(asyncio.ensure_future(self.async_req(img_link, self.get_imgs)))
@@ -107,7 +107,7 @@ class YupooDownloader():
 					control[0] = 0
 					errors[0] = 0
 					self.timeout = aiohttp.ClientTimeout(connect=self.timeout_connect[0], sock_read=self.timeout_read[0])
-					# print(self.timeout)
+					print(self.timeout)
 			else:
 				control[0] = 0
 				errors[0] = 0
@@ -138,7 +138,7 @@ class YupooDownloader():
 				self.read_errors[0] += 1
 			elif "Connection timeout to host" in str(e):
 				self.connect_errors[0] += 1
-			# print(e)
+			print(e)
 			return await self.async_req(url, function)
 
 	def get_pages(self):
@@ -225,12 +225,12 @@ class YupooDownloader():
 		except:
 			return
 
-		path = f"{PATH}/fotos/{album}"
+		path = f"{PATH}/fotos_camisa/{album}"
 		if os.path.exists(path) == False:
 			os.makedirs(path)
 				
 		try:
-			async with aiofiles.open(f'./fotos/{album}/{img_title}.jpg', mode='wb') as f:
+			async with aiofiles.open(f'{PATH}/fotos_camisa/{album}/{img_title}.jpg', mode='wb') as f:
 				await f.write(r[0])
 			self.bar()
 		except Exception as e:
