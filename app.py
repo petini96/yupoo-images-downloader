@@ -39,63 +39,61 @@ class YupooDownloader():
 		self.timeout = aiohttp.ClientTimeout(connect=self.timeout_connect[0], sock_read=self.timeout_read[0])
 
 	async def main(self):
-		session = aiohttp.ClientSession(headers=self.headers)
-		async with session as self.session:
-			if self.all_albums:
-				#getting albums from pages resp
-				tasks = []
-				for page in self.pages:
-					tasks.append(asyncio.ensure_future(self.async_req(page, self.get_albums)))
-				self.console.print("\n[#6149ab]Pegando álbuns das páginas[/]")
-				with alive_bar(len(tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
-					await self._(tasks, self.get_albums)
+		if self.all_albums:
+			#getting albums from pages resp
+			tasks = []
+			for page in self.pages:
+				tasks.append(asyncio.ensure_future(self.async_req(page, self.get_albums)))
+			self.console.print("\n[#6149ab]Pegando álbuns das páginas[/]")
+			with alive_bar(len(tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
+				await self._(tasks, self.get_albums)
 
-				#getting images from albums resp
-				tasks = []
-				for page in self.albums:
-					for album in self.albums[page]:
-						tasks.append(asyncio.ensure_future(self.async_req(self.albums[page][album]['album_link'], self.get_album)))
-				self.console.print("\n[#6149ab]Pegando as imagens dos álbuns[/]")
-				with alive_bar(len(tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
-					await self._(tasks, self.get_album)
-			else:
-				#getting images from albums resp
-				tasks = []
-				for url in self.urls:
-					tasks.append(asyncio.ensure_future(self.async_req(url, self.get_album)))
-				self.console.print("\n[#6149ab]Pegando as imagens dos álbuns[/]")
-				with alive_bar(len(tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
-					await self._(tasks, self.get_album)
-			# print(perf_counter()-self.start_time)
+			#getting images from albums resp
+			tasks = []
+			for page in self.albums:
+				for album in self.albums[page]:
+					tasks.append(asyncio.ensure_future(self.async_req(self.albums[page][album]['album_link'], self.get_album)))
+			self.console.print("\n[#6149ab]Pegando as imagens dos álbuns[/]")
+			with alive_bar(len(tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
+				await self._(tasks, self.get_album)
+		else:
+			#getting images from albums resp
+			tasks = []
+			for url in self.urls:
+				tasks.append(asyncio.ensure_future(self.async_req(url, self.get_album)))
+			self.console.print("\n[#6149ab]Pegando as imagens dos álbuns[/]")
+			with alive_bar(len(tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
+				await self._(tasks, self.get_album)
+		# print(perf_counter()-self.start_time)
 
-			#downloading imgs in albums
-			self.console.print('\n[#6149ab]Baixando as imagens dos álbuns[#6149ab]')
-			tasks=[]
-			if self.all_albums:
-				for page in self.albums:
-					for album in self.albums[page]:
-						for img in self.albums[page][album]['imgs']:
-							img_link = img
-							img_title = re.findall(r'/((?:(?!/).)*)$', img_link)[0].split('.')[0] #/((?:(?!/).)*)$
-							path = f"{PATH}/fotos/{album}/{img_title}.jpg"
-							if os.path.exists(path) == True:
-								continue
-							tasks.append(asyncio.ensure_future(self.async_req(img_link, self.get_imgs)))
-					if len(tasks) > 0:
-						with alive_bar(len(tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
-							await self._(tasks, self.get_imgs)
-			else:
-					for album in self.albums:
-						for img in self.albums[album]['imgs']:
-							img_link = img
-							img_title = re.findall(r'/((?:(?!/).)*)$', img_link)[0].split('.')[0] #/((?:(?!/).)*)$
-							path = f"{PATH}/fotos/{album}/{img_title}.jpg"
-							if os.path.exists(path) == True:
-								continue
-							tasks.append(asyncio.ensure_future(self.async_req(img_link, self.get_imgs)))
-					if len(tasks) > 0:
-						with alive_bar(len(tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
-							await self._(tasks, self.get_imgs)
+		#downloading imgs in albums
+		self.console.print('\n[#6149ab]Baixando as imagens dos álbuns[#6149ab]')
+		tasks=[]
+		if self.all_albums:
+			for page in self.albums:
+				for album in self.albums[page]:
+					for img in self.albums[page][album]['imgs']:
+						img_link = img
+						img_title = re.findall(r'/((?:(?!/).)*)$', img_link)[0].split('.')[0] #/((?:(?!/).)*)$
+						path = f"{PATH}/fotos/{album}/{img_title}.jpg"
+						if os.path.exists(path) == True:
+							continue
+						tasks.append(asyncio.ensure_future(self.async_req(img_link, self.get_imgs)))
+				if len(tasks) > 0:
+					with alive_bar(len(tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
+						await self._(tasks, self.get_imgs)
+		else:
+				for album in self.albums:
+					for img in self.albums[album]['imgs']:
+						img_link = img
+						img_title = re.findall(r'/((?:(?!/).)*)$', img_link)[0].split('.')[0] #/((?:(?!/).)*)$
+						path = f"{PATH}/fotos/{album}/{img_title}.jpg"
+						if os.path.exists(path) == True:
+							continue
+						tasks.append(asyncio.ensure_future(self.async_req(img_link, self.get_imgs)))
+				if len(tasks) > 0:
+					with alive_bar(len(tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
+						await self._(tasks, self.get_imgs)
 
 			#####
 			# print(self.albums)
@@ -123,15 +121,16 @@ class YupooDownloader():
 		self.read_control[0] +=1
 
 		try:
-			async with self.session.get(url, timeout=self.timeout, headers=self.headers) as resp:
-				if resp.status == 200:
-					if 'get_imgs' in repr(function):
-						await function([await resp.read(), resp.status, url])
+			async with aiohttp.ClientSession(headers=self.headers) as session:
+				async with session.get(url, timeout=self.timeout, headers=self.headers) as resp:
+					if resp.status == 200:
+						if 'get_imgs' in repr(function):
+							await function([await resp.read(), resp.status, url])
+						else:
+							self.bar()
+							await function([await resp.text(), resp.status, url])
 					else:
-						self.bar()
-						await function([await resp.text(), resp.status, url])
-				else:
-					return await self.async_req(url, function)
+						return await self.async_req(url, function)
 				
 		except Exception as e:
 			if "Timeout on reading data from socket" in str(e):
