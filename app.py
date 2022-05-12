@@ -1,7 +1,8 @@
 import asyncio
-from logging import error
+from logging import error, raiseExceptions
 import os
 import re
+import sys
 import aiohttp
 import aiofiles
 import requests
@@ -41,34 +42,34 @@ class YupooDownloader():
 	async def main(self):
 		if self.all_albums:
 			#getting albums from pages resp
-			tasks = []
+			self.tasks = []
 			for page in self.pages:
-				tasks.append(asyncio.ensure_future(self.async_req(page, self.get_albums)))
+				self.tasks.append(asyncio.ensure_future(self.async_req(page, self.get_albums)))
 			self.console.print("\n[#6149ab]Pegando álbuns das páginas[/]")
-			with alive_bar(len(tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
-				await self._(tasks, self.get_albums)
+			with alive_bar(len(self.tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
+				await self._(self.tasks, self.get_albums)
 
 			#getting images from albums resp
-			tasks = []
+			self.tasks = []
 			for page in self.albums:
 				for album in self.albums[page]:
-					tasks.append(asyncio.ensure_future(self.async_req(self.albums[page][album]['album_link'], self.get_album)))
+					self.tasks.append(asyncio.ensure_future(self.async_req(self.albums[page][album]['album_link'], self.get_album)))
 			self.console.print("\n[#6149ab]Pegando as imagens dos álbuns[/]")
-			with alive_bar(len(tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
-				await self._(tasks, self.get_album)
+			with alive_bar(len(self.tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
+				await self._(self.tasks, self.get_album)
 		else:
 			#getting images from albums resp
-			tasks = []
+			self.tasks = []
 			for url in self.urls:
-				tasks.append(asyncio.ensure_future(self.async_req(url, self.get_album)))
+				self.tasks.append(asyncio.ensure_future(self.async_req(url, self.get_album)))
 			self.console.print("\n[#6149ab]Pegando as imagens dos álbuns[/]")
-			with alive_bar(len(tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
-				await self._(tasks, self.get_album)
+			with alive_bar(len(self.tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
+				await self._(self.tasks, self.get_album)
 		# print(perf_counter()-self.start_time)
 
 		#downloading imgs in albums
 		self.console.print('\n[#6149ab]Baixando as imagens dos álbuns[#6149ab]')
-		tasks=[]
+		self.tasks=[]
 		if self.all_albums:
 			for page in self.albums:
 				for album in self.albums[page]:
@@ -78,10 +79,10 @@ class YupooDownloader():
 						path = f"{PATH}/fotos_camisa/{album}/{img_title}.jpg"
 						if os.path.exists(path) == True:
 							continue
-						tasks.append(asyncio.ensure_future(self.async_req(img_link, self.get_imgs)))
-				if len(tasks) > 0:
-					with alive_bar(len(tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
-						await self._(tasks, self.get_imgs)
+						self.tasks.append(asyncio.ensure_future(self.async_req(img_link, self.get_imgs)))
+				if len(self.tasks) > 0:
+					with alive_bar(len(self.tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
+						await self._(self.tasks, self.get_imgs)
 		else:
 				for album in self.albums:
 					for img in self.albums[album]['imgs']:
@@ -90,10 +91,10 @@ class YupooDownloader():
 						path = f"{PATH}/fotos_camisa/{album}/{img_title}.jpg"
 						if os.path.exists(path) == True:
 							continue
-						tasks.append(asyncio.ensure_future(self.async_req(img_link, self.get_imgs)))
-				if len(tasks) > 0:
-					with alive_bar(len(tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
-						await self._(tasks, self.get_imgs)
+						self.tasks.append(asyncio.ensure_future(self.async_req(img_link, self.get_imgs)))
+				if len(self.tasks) > 0:
+					with alive_bar(len(self.tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
+						await self._(self.tasks, self.get_imgs)
 
 			#####
 			# print(self.albums)
@@ -138,7 +139,6 @@ class YupooDownloader():
 				self.read_errors[0] += 1
 			elif "Connection timeout to host" in str(e):
 				self.connect_errors[0] += 1
-			print(e)
 			return await self.async_req(url, function)
 
 	def get_pages(self):
@@ -194,7 +194,16 @@ class YupooDownloader():
 			cover = soup.select_one(".showalbumheader__gallerycover > img")
 			src_cover = cover.get("src")
 			src_cover = re.findall('/((?:(?!/).)*)/medium', src_cover)
-		for img in soup.find_all("div", {"class": "showalbum__children"}):
+		album_div = soup.find_all("div", {"class": "showalbum__children"})
+		if len(album_div) == 0:
+			for task in self.tasks:
+				if not task.done():
+					task.cancel()
+				elif task.cancelled() or task.exception():
+					None
+			self.error = 'link inválido!'
+			raise Exception(self.error)
+		for img in album_div:
 			img = img.find("img")
 			src = img.get("data-origin-src") #data-origin-src
 			if self.cover:
@@ -238,7 +247,10 @@ class YupooDownloader():
 			# print(e)
 
 	async def _(self, tasks, function):
-		resp = await asyncio.gather(*tasks)
+		try:
+			resp = await asyncio.gather(*self.tasks)
+		except asyncio.exceptions.CancelledError:
+			raise Exception(self.error)
 
 	async def parse_title(self, title):
 		title = title.replace('.', '_').replace('/', '_').replace(':', '').replace('"', '').replace("'", '').replace('*','')
@@ -267,3 +279,6 @@ class YupooDownloader():
 						return [k]
 				elif v == value:
 						return [k]
+
+if __name__ == "__main__":
+	import gui

@@ -8,7 +8,6 @@ from rich.text import Text
 from rich.panel import Panel
 import rich.prompt as prompt
 
-from config import URLS as urls
 from app import YupooDownloader
 from edit_rich import make_prompt, render_default
 
@@ -37,48 +36,53 @@ class App():
 		self.execute_answer(opt)
 
 	def execute_answer(self, opt):
-		selected_print = lambda option, text: self.console.print(f"\nOpção [b #6149ab]{option}[/] selecionada: [b #baa6ff]{text}[/]")
-		if opt == "1" or opt == "2":
-			if opt == "1":
-				selected_print_ = lambda: selected_print("1", "Baixando todas as fotos do catálogo!")
-				selected_print_()
-				self.console.print("\nInsira o link do catálogo.")
-				url = prompt.Prompt.ask("[#6149ab b]link[/]")
-				clear()
-				self.default()
-				selected_print_()
-				asyncio.run(YupooDownloader(all_albums=True, urls=url, cover=False).main())
-			else:
-				selected_print_ = lambda: selected_print("2", "Baixando todas as fotos principais do catálogo!")
-				selected_print_()
-				self.console.print("\nInsira o link do catálogo.")
-				url = prompt.Prompt.ask("[#6149ab b]link[/]")
-				clear()
-				self.default()
-				selected_print_()
-				asyncio.run(YupooDownloader(all_albums=True, urls=url, cover=True).main())
-		elif opt == "3" or opt == "4":
-			if opt == "3":
-				selected_print_ = lambda: selected_print("3", "Baixando todas as fotos dos álbuns selecionados!")
-				selected_print_()
-			else:
-				selected_print_ = lambda: selected_print("4", "Baixando todas as fotos principais dos álbuns selecionados!")
-				selected_print_()
-			self.console.print("\nInsira os links dos álbuns para download. ([#baa6ff]digite [u b]ok[/] para executar![/])")
-			while True:
-				url = prompt.Prompt.ask("[#6149ab b]link[/]")
-				if url == "ok":
-					break
-			if opt == "3":
-				clear()
-				self.default()
-				selected_print_()
-				asyncio.run(YupooDownloader(all_albums=False, urls=urls, cover=False).main())
-			else:
-				clear()
-				self.default()
-				selected_print_()
-				asyncio.run(YupooDownloader(all_albums=False, urls=urls, cover=True).main())
+		try:
+			selected_print = lambda option, text: self.console.print(f"\nOpção [b #6149ab]{option}[/] selecionada: [b #baa6ff]{text}[/]")
+			if opt == "1" or opt == "2":
+				if opt == "1":
+					selected_print_ = lambda: selected_print("1", "Baixando todas as fotos do catálogo!")
+					selected_print_()
+					self.console.print("\nInsira o link do catálogo.")
+					url = prompt.Prompt.ask("[#6149ab b]link[/]")
+					clear()
+					self.default()
+					selected_print_()
+					asyncio.run(YupooDownloader(all_albums=True, urls=url, cover=False).main())
+				else:
+					selected_print_ = lambda: selected_print("2", "Baixando todas as fotos principais do catálogo!")
+					selected_print_()
+					self.console.print("\nInsira o link do catálogo.")
+					url = prompt.Prompt.ask("[#6149ab b]link[/]")
+					clear()
+					self.default()
+					selected_print_()
+					asyncio.run(YupooDownloader(all_albums=True, urls=url, cover=True).main())
+			elif opt == "3" or opt == "4":
+				if opt == "3":
+					selected_print_ = lambda: selected_print("3", "Baixando todas as fotos dos álbuns selecionados!")
+					selected_print_()
+				else:
+					selected_print_ = lambda: selected_print("4", "Baixando todas as fotos principais dos álbuns selecionados!")
+					selected_print_()
+				self.console.print("\nInsira os links dos álbuns para download. ([#baa6ff]digite [u b]ok[/] para executar![/])")
+				urls = []
+				while True:
+					url = prompt.Prompt.ask("[#6149ab b]link[/]")
+					if url == "ok":
+						break
+					urls.append(url)
+				if opt == "3":
+					clear()
+					self.default()
+					selected_print_()
+					asyncio.run(YupooDownloader(all_albums=False, urls=urls, cover=False).main())
+				else:
+					clear()
+					self.default()
+					selected_print_()
+					asyncio.run(YupooDownloader(all_albums=False, urls=urls, cover=True).main())
+		except Exception as e:
+			self.console.print(f"\n[b #c7383f]erro: {e}[/]")
 
 	def default(self):
 		self.console.print(self.st1np)
@@ -122,6 +126,7 @@ class App():
 try:
 	clear()
 	app = App().main()
+	sleep(10)
 except KeyboardInterrupt:
 	clear()
 	app = None
