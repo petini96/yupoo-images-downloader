@@ -1,20 +1,17 @@
 import asyncio
-from logging import error, raiseExceptions
 import os
 import re
-import sys
 import aiohttp
 import aiofiles
 import requests
 from bs4 import BeautifulSoup
 import lxml
 import regex
-import json
-from time import perf_counter, sleep
+from time import sleep
 from alive_progress import alive_bar
-import pathlib
-PATH = str(os.path.join(os.environ["HOMEPATH"], "Desktop")).replace('\\', '/')
 from rich.console import Console
+
+PATH = str(os.path.join(os.environ["HOMEPATH"], "Desktop")).replace('\\', '/')
 
 class YupooDownloader():
 	def __init__(self, all_albums, urls = None, cover=False):
@@ -22,7 +19,6 @@ class YupooDownloader():
 		self.all_albums = all_albums
 		self.urls = urls
 		self.cover = cover
-		self.start_time = perf_counter()
 		self.albums = {}
 		if self.all_albums:
 			self.pages = self.get_pages()
@@ -38,6 +34,9 @@ class YupooDownloader():
 		self.read_errors = [0]
 
 		self.timeout = aiohttp.ClientTimeout(connect=self.timeout_connect[0], sock_read=self.timeout_read[0])
+
+	class FatalException(Exception):
+		pass
 
 	async def main(self):
 		if self.all_albums:
@@ -65,7 +64,6 @@ class YupooDownloader():
 			self.console.print("\n[#6149ab]Pegando as imagens dos álbuns[/]")
 			with alive_bar(len(self.tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
 				await self._(self.tasks, self.get_album)
-		# print(perf_counter()-self.start_time)
 
 		#downloading imgs in albums
 		self.console.print('\n[#6149ab]Baixando as imagens dos álbuns[#6149ab]')
@@ -95,10 +93,6 @@ class YupooDownloader():
 				if len(self.tasks) > 0:
 					with alive_bar(len(self.tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
 						await self._(self.tasks, self.get_imgs)
-
-			#####
-			# print(self.albums)
-			# print(perf_counter()-self.start_time)
 
 	async def async_req(self, url, function = None):
 		def auto_timeout(timeout, control, errors, e, add):
@@ -133,12 +127,17 @@ class YupooDownloader():
 					else:
 						return await self.async_req(url, function)
 				
+		except self.FatalException:
+			raise self.FatalException()
 		except Exception as e:
 			if "Timeout on reading data from socket" in str(e):
 				# print(self.read_errors, self.read_control)
 				self.read_errors[0] += 1
 			elif "Connection timeout to host" in str(e):
 				self.connect_errors[0] += 1
+			if url == str(e):
+				self.error = 'link inválido!\n"'
+				raise self.FatalException()
 			return await self.async_req(url, function)
 
 	def get_pages(self):
@@ -196,13 +195,8 @@ class YupooDownloader():
 			src_cover = re.findall('/((?:(?!/).)*)/medium', src_cover)
 		album_div = soup.find_all("div", {"class": "showalbum__children"})
 		if len(album_div) == 0:
-			for task in self.tasks:
-				if not task.done():
-					task.cancel()
-				elif task.cancelled() or task.exception():
-					None
-			self.error = 'link inválido!'
-			raise Exception(self.error)
+			self.error = 'não encontrado imagens no álbum, link potencialmente inválido!\n'
+			raise self.FatalException()
 		for img in album_div:
 			img = img.find("img")
 			src = img.get("data-origin-src") #data-origin-src
@@ -249,8 +243,11 @@ class YupooDownloader():
 	async def _(self, tasks, function):
 		try:
 			resp = await asyncio.gather(*self.tasks)
-		except asyncio.exceptions.CancelledError:
+		except self.FatalException:
+			for task in self.tasks:
+				task.cancel()
 			raise Exception(self.error)
+
 
 	async def parse_title(self, title):
 		title = title.replace('.', '_').replace('/', '_').replace(':', '').replace('"', '').replace("'", '').replace('*','')

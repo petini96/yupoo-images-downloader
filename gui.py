@@ -1,6 +1,6 @@
 import os
 import asyncio
-from time import sleep
+from time import sleep, perf_counter
 asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 from rich.console import Console
@@ -16,12 +16,13 @@ clear()
 
 class App():
 	def __init__(self):
+		self.start_time = perf_counter()
 		self.console = Console(color_system="auto")
 		self.st1np = self.parse_nick()
 
 	def main(self):
 		self.default()
-		self.console.print("\nPrograma desenvolvido para te ajudar a baixar \nimagens com qualidade para postagem do site da [#66b381]Yupoo[/]!")
+		self.console.print("\nPrograma desenvolvido para te ajudar a baixar \nimagens com qualidade para postagem do site da [#0ba162]Yupoo[/]!")
 		self.console.print("\n[b #6149ab]Opções[/]")
 		self.console.print("[b #baa6ff]1.[/] Baixe todas as imagens de todos os álbuns. ([bold u #c7383f]pesado[/])")
 		self.console.print("[b #baa6ff]2.[/] Baixar apenas a foto principal de todos álbuns.")
@@ -30,10 +31,15 @@ class App():
 
 		self.edit_rich()
 		opt = prompt.Prompt.ask("\n[b #6149ab]>>[/]  Selecione uma opção", choices=["1", "2", "3", "4"], default="4")
-		# self.console.print('\nCancele a qualquer momento apertando [b u #c7383f]CTRL C[/]!')
 		clear()
 		self.default()
-		self.execute_answer(opt)
+		try:
+			self.execute_answer(opt)
+		except Exception as e:
+			self.console.print(f"\n[b #c7383f]{e}[/]")
+			return
+		self.console.print(f"\n[b #0ba162]Concluido![/]")
+		self.console.print(f"Tempo gasto: [b #0ba162]{perf_counter()-self.start_time}[/]")
 
 	def execute_answer(self, opt):
 		try:
@@ -68,9 +74,17 @@ class App():
 				urls = []
 				while True:
 					url = prompt.Prompt.ask("[#6149ab b]link[/]")
+					url = url.lower()
 					if url == "ok":
-						break
-					urls.append(url)
+						if len(urls) != 0:
+							break
+						self.console.print(f'[b #c7383f]insira um link pelo menos antes de iniciar![/]\n')
+					elif "yupoo" not in url:
+						self.console.print(f'[b #c7383f]ultimo link não considerado, link inválido!\nlembre-se de inserir apenas catálogos do site Yupoo![/]\n')
+					elif "https://" not in url:
+						self.console.print(f'[b #c7383f]ultimo link não considerado, link inválido!\nlembre-se de colocar "https://"[/]\n')
+					else:
+						urls.append(url)
 				if opt == "3":
 					clear()
 					self.default()
@@ -82,11 +96,13 @@ class App():
 					selected_print_()
 					asyncio.run(YupooDownloader(all_albums=False, urls=urls, cover=True).main())
 		except Exception as e:
-			self.console.print(f"\n[b #c7383f]erro: {e}[/]")
+			raise Exception(e)
 
 	def default(self):
 		self.console.print(self.st1np)
-		self.console.print(Panel.fit("[#ffffff]Considere ajudar o [bold #4912ff]PROJETO[/][/]!\n[#ffffff]Chave [bold u #05a62a]PIX[/]: [bold #00ff73]xxxxxxx[/]", title="[blink #4912ff]***[/]", subtitle="[blink #4912ff]***[/]"))
+		self.console.print("[#ffffff]Github:[/] [default]https://github.com/st1np/[/] \n[#ffffff]Sugestões, reportar bugs:[/] [default]xxxx[/]")
+		print()
+		self.console.print(Panel.fit("[#ffffff]Considere ajudar o [bold #4912ff]PROJETO[/][/]!\n[#ffffff]Chave [bold u #0ba162]PIX[/]: [bold #00ff73]xxxxxxx[/]", title="[blink #4912ff]***[/]", subtitle="[blink #4912ff]***[/]"))
 
 	def edit_rich(self):
 		def choices_style(style='prompt.choices'):
