@@ -38,7 +38,7 @@ class App():
 		except Exception as e:
 			self.console.print(f"\n[b #c7383f]{e}[/]")
 			return
-		self.console.print(f"\n[b #0ba162]Concluido![/]")
+		self.console.print(f"\n[b #0ba162]Concluido! Imagens salvas na área de trabalho.[/]")
 		self.console.print(f"Tempo gasto: [b #0ba162]{perf_counter()-self.start_time}[/]")
 
 	def execute_answer(self, opt):
@@ -100,9 +100,9 @@ class App():
 
 	def default(self):
 		self.console.print(self.st1np)
-		self.console.print("[#ffffff]Github:[/] [default]https://github.com/st1np/[/] \n[#ffffff]Sugestões, reportar bugs:[/] [default]xxxx[/]")
+		self.console.print("[#ffffff]Github:[/] [default]https://github.com/st1np/[/] \n[#ffffff]Sugestões, reportar bugs:[/] [default](12) 9 8137-2725[/]")
 		print()
-		self.console.print(Panel.fit("[#ffffff]Considere ajudar o [bold #4912ff]PROJETO[/][/]!\n[#ffffff]Chave [bold u #0ba162]PIX[/]: [bold #00ff73]xxxxxxx[/]", title="[blink #4912ff]***[/]", subtitle="[blink #4912ff]***[/]"))
+		self.console.print(Panel.fit("[#ffffff]Considere ajudar o [bold #4912ff]PROJETO[/][/]!\n[#ffffff]Chave [bold u #0ba162]PIX[/]: [bold #00ff73](12) 9 8137-2725[/]", title="[blink #4912ff]***[/]", subtitle="[blink #4912ff]***[/]"))
 
 	def edit_rich(self):
 		def choices_style(style='prompt.choices'):
