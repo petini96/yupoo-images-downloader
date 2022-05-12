@@ -1,281 +1,149 @@
-import asyncio
 import os
-import re
-import aiohttp
-import aiofiles
-import requests
-from bs4 import BeautifulSoup
-import lxml
-import regex
-from time import sleep
-from alive_progress import alive_bar
+import asyncio
+from time import sleep, perf_counter
+asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 from rich.console import Console
+from rich.text import Text
+from rich.panel import Panel
+import rich.prompt as prompt
 
-PATH = str(os.path.join(os.environ["HOMEPATH"], "Desktop")).replace('\\', '/')
+from main import YupooDownloader
+from edit_rich import make_prompt, render_default
 
-class YupooDownloader():
-	def __init__(self, all_albums, urls = None, cover=False):
+clear = lambda: os.system("cls")
+clear()
+
+class App():
+	def __init__(self):
+		self.start_time = perf_counter()
 		self.console = Console(color_system="auto")
-		self.all_albums = all_albums
-		self.urls = urls
-		self.cover = cover
-		self.albums = {}
-		if self.all_albums:
-			self.pages = self.get_pages()
+		self.st1np = self.parse_nick()
 
-		self.headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.54 Safari/537.36', 'referer': "https://yupoo.com/"}
-		self.timeout_connect = [10]
-		self.connect_control = [0]
-		self.connect_errors = [0]
+	def main(self):
+		self.default()
+		self.console.print("\nPrograma desenvolvido para te ajudar a baixar \nimagens com qualidade para postagem do site da [#0ba162]Yupoo[/]!")
+		self.console.print("\n[b #6149ab]Opções[/]")
+		self.console.print("[b #baa6ff]1.[/] Baixe todas as imagens de todos os álbuns. ([bold u #c7383f]pesado[/])")
+		self.console.print("[b #baa6ff]2.[/] Baixar apenas a foto principal de todos álbuns.")
+		self.console.print("[b #baa6ff]3.[/] Inserir álbuns para baixar todas as fotos.")
+		self.console.print("[b #baa6ff]4.[/] Inserir álbuns para baixar apenas a foto principal.")
 
-		self.timeout_read = [10]
-		self.read_control = [0]
-		self.read_errors = [0]
-
-		self.timeout = aiohttp.ClientTimeout(connect=self.timeout_connect[0], sock_read=self.timeout_read[0])
-
-	class FatalException(Exception):
-		pass
-
-	async def main(self):
-		if self.all_albums:
-			#getting albums from pages resp
-			self.tasks = []
-			for page in self.pages:
-				self.tasks.append(asyncio.ensure_future(self.async_req(page, self.get_albums)))
-			self.console.print("\n[#6149ab]Pegando álbuns das páginas[/]")
-			with alive_bar(len(self.tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
-				await self._(self.tasks, self.get_albums)
-
-			#getting images from albums resp
-			self.tasks = []
-			for page in self.albums:
-				for album in self.albums[page]:
-					self.tasks.append(asyncio.ensure_future(self.async_req(self.albums[page][album]['album_link'], self.get_album)))
-			self.console.print("\n[#6149ab]Pegando as imagens dos álbuns[/]")
-			with alive_bar(len(self.tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
-				await self._(self.tasks, self.get_album)
-		else:
-			#getting images from albums resp
-			self.tasks = []
-			for url in self.urls:
-				self.tasks.append(asyncio.ensure_future(self.async_req(url, self.get_album)))
-			self.console.print("\n[#6149ab]Pegando as imagens dos álbuns[/]")
-			with alive_bar(len(self.tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
-				await self._(self.tasks, self.get_album)
-
-		#downloading imgs in albums
-		self.console.print('\n[#6149ab]Baixando as imagens dos álbuns[#6149ab]')
-		self.tasks=[]
-		if self.all_albums:
-			for page in self.albums:
-				for album in self.albums[page]:
-					for img in self.albums[page][album]['imgs']:
-						img_link = img
-						img_title = re.findall(r'/((?:(?!/).)*)$', img_link)[0].split('.')[0] #/((?:(?!/).)*)$
-						path = f"{PATH}/fotos_camisa/{album}/{img_title}.jpg"
-						if os.path.exists(path) == True:
-							continue
-						self.tasks.append(asyncio.ensure_future(self.async_req(img_link, self.get_imgs)))
-				if len(self.tasks) > 0:
-					with alive_bar(len(self.tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
-						await self._(self.tasks, self.get_imgs)
-		else:
-				for album in self.albums:
-					for img in self.albums[album]['imgs']:
-						img_link = img
-						img_title = re.findall(r'/((?:(?!/).)*)$', img_link)[0].split('.')[0] #/((?:(?!/).)*)$
-						path = f"{PATH}/fotos_camisa/{album}/{img_title}.jpg"
-						if os.path.exists(path) == True:
-							continue
-						self.tasks.append(asyncio.ensure_future(self.async_req(img_link, self.get_imgs)))
-				if len(self.tasks) > 0:
-					with alive_bar(len(self.tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
-						await self._(self.tasks, self.get_imgs)
-
-	async def async_req(self, url, function = None):
-		def auto_timeout(timeout, control, errors, e, add):
-			if errors[0] != 0:
-				if control[0] // errors[0] <= e:
-					timeout[0] += add
-					control[0] = 0
-					errors[0] = 0
-					self.timeout = aiohttp.ClientTimeout(connect=self.timeout_connect[0], sock_read=self.timeout_read[0])
-					print(self.timeout)
-			else:
-				control[0] = 0
-				errors[0] = 0
-
-		if self.connect_control[0] // 10 >= 1:
-			auto_timeout(self.timeout_connect, self.connect_control, self.connect_errors, 4, 1)
-		if self.read_control[0] // 10 >= 1:
-			auto_timeout(self.timeout_read, self.read_control, self.read_errors, 4, 1)
-
-		self.connect_control[0] +=1
-		self.read_control[0] +=1
-
+		self.edit_rich()
+		opt = prompt.Prompt.ask("\n[b #6149ab]>>[/]  Selecione uma opção", choices=["1", "2", "3", "4"], default="4")
+		clear()
+		self.default()
 		try:
-			async with aiohttp.ClientSession(headers=self.headers) as session:
-				async with session.get(url, timeout=self.timeout, headers=self.headers) as resp:
-					if resp.status == 200:
-						if 'get_imgs' in repr(function):
-							await function([await resp.read(), resp.status, url])
-						else:
-							self.bar()
-							await function([await resp.text(), resp.status, url])
-					else:
-						return await self.async_req(url, function)
-				
-		except self.FatalException:
-			raise self.FatalException()
+			self.execute_answer(opt)
 		except Exception as e:
-			if "Timeout on reading data from socket" in str(e):
-				# print(self.read_errors, self.read_control)
-				self.read_errors[0] += 1
-			elif "Connection timeout to host" in str(e):
-				self.connect_errors[0] += 1
-			if url == str(e):
-				self.error = 'link inválido!\n"'
-				raise self.FatalException()
-			return await self.async_req(url, function)
-
-	def get_pages(self):
-		# print('x')
-		try:
-			url = f"{self.urls}/albums?tab=gallery&page=1"
-			while True:
-				resp = requests.get(url)
-				if resp.status_code == 200:
-					break
-				# print('again')
-
-			soup = BeautifulSoup(resp.text.encode("ascii", "ignore").decode("utf-8"), "lxml")
-			total_pages = soup.select_one("form.pagination__jumpwrap > span").get_text()
-			print(f"pages: {total_pages}")
-			pages = []
-			for page in range(1, int(total_pages)+1):
-					pages.append(f"{url[:-1]}{page}")
-			if type(pages) == list:
-				if None in pages:
-					sleep(1)
-					self.get_pages()
-				else: 
-					return pages
-			elif pages == None:
-				sleep(1)
-				self.get_pages()
-			else:
-				sleep(1)
-				self.get_pages()
-		except Exception as e:
-			print(e)
-			print('error - get_pages')
-			sleep(1)
-			self.get_pages()
-
-	async def get_albums(self, page):
-		num_page = str(regex.findall(r"&page=(.+)", page[2])[0])
-		page = page[0]
-		
-
-		self.albums[num_page] = {}
-		soup = BeautifulSoup(page.encode("ascii", "ignore").decode("utf-8"), "lxml")
-		for album in soup.find_all("a", {"class": "album__main"}):
-			title = await self.parse_title(album.get('title'))
-			self.albums[num_page][title] = {"album_link": self.urls+album.get('href')}
-
-	async def get_album(self, r):
-		keys = await self.find_key(self.albums, r[2])
-		soup = BeautifulSoup(r[0].encode("ascii", "ignore").decode("utf-8"), "lxml")
-		album_imgs_links = []
-		if self.cover:
-			cover = soup.select_one(".showalbumheader__gallerycover > img")
-			src_cover = cover.get("src")
-			src_cover = re.findall('/((?:(?!/).)*)/medium', src_cover)
-		album_div = soup.find_all("div", {"class": "showalbum__children"})
-		if len(album_div) == 0:
-			self.error = 'não encontrado imagens no álbum, link potencialmente inválido!\n'
-			raise self.FatalException()
-		for img in album_div:
-			img = img.find("img")
-			src = img.get("data-origin-src") #data-origin-src
-			if self.cover:
-				src_re = re.findall('/((?:(?!/).)*)/((?:(?!/).)*)\.((?:(?!\.).)*)$', src)
-				if src_cover[0] == src_re[0][0]:
-					album_imgs_links.append(f"https:{src}")
-					break
-				continue
-			elif self.cover == False:
-				album_imgs_links.append(f"https:{src}")
-		if self.all_albums:
-			self.albums[keys[0]][keys[1]]['imgs'] = album_imgs_links
-		else:
-			title = soup.select_one("span.showalbumheader__gallerytitle").text
-			title = await self.parse_title(title)
-			self.albums[title] = {}
-			self.albums[title]["album_link"] = r[2]
-			self.albums[title]["imgs"] = album_imgs_links
-
-	async def get_imgs(self, r):
-		keys = await self.find_key(self.albums, r[2])
-		if self.all_albums:
-			album = keys[1]
-		else:
-			album = keys[0]
-		try:
-			img_title = re.findall(r'/((?:(?!/).)*)$', r[2])[0].split('.')[0] #/((?:(?!/).)*)$
-		except:
+			self.console.print(f"\n[b #c7383f]{e}[/]")
 			return
+		self.console.print(f"\n[b #0ba162]Concluido![/]")
+		self.console.print(f"Tempo gasto: [b #0ba162]{perf_counter()-self.start_time}[/]")
 
-		path = f"{PATH}/fotos_camisa/{album}"
-		if os.path.exists(path) == False:
-			os.makedirs(path)
-				
+	def execute_answer(self, opt):
 		try:
-			async with aiofiles.open(f'{PATH}/fotos_camisa/{album}/{img_title}.jpg', mode='wb') as f:
-				await f.write(r[0])
-			self.bar()
-		except Exception as e:
-			None
-			# print(e)
-
-	async def _(self, tasks, function):
-		try:
-			resp = await asyncio.gather(*self.tasks)
-		except self.FatalException:
-			for task in self.tasks:
-				task.cancel()
-			raise Exception(self.error)
-
-
-	async def parse_title(self, title):
-		title = title.replace('.', '_').replace('/', '_').replace(':', '').replace('"', '').replace("'", '').replace('*','')
-		it = 0
-		while True:
-			it+=1
-			if it == 1:
-				if await self.find_key(self.albums, title) == None:
-					break
-			else:
-				if await self.find_key(self.albums, f"{title} - {str(it)}") == None:
-					title = f"{title} - {str(it)}"
-					break
+			selected_print = lambda option, text: self.console.print(f"\nOpção [b #6149ab]{option}[/] selecionada: [b #baa6ff]{text}[/]")
+			if opt == "1" or opt == "2":
+				if opt == "1":
+					selected_print_ = lambda: selected_print("1", "Baixando todas as fotos do catálogo!")
+					selected_print_()
+					self.console.print("\nInsira o link do catálogo.")
+					url = prompt.Prompt.ask("[#6149ab b]link[/]")
+					clear()
+					self.default()
+					selected_print_()
+					asyncio.run(YupooDownloader(all_albums=True, urls=url, cover=False).main())
 				else:
-					continue
-		return title
+					selected_print_ = lambda: selected_print("2", "Baixando todas as fotos principais do catálogo!")
+					selected_print_()
+					self.console.print("\nInsira o link do catálogo.")
+					url = prompt.Prompt.ask("[#6149ab b]link[/]")
+					clear()
+					self.default()
+					selected_print_()
+					asyncio.run(YupooDownloader(all_albums=True, urls=url, cover=True).main())
+			elif opt == "3" or opt == "4":
+				if opt == "3":
+					selected_print_ = lambda: selected_print("3", "Baixando todas as fotos dos álbuns selecionados!")
+					selected_print_()
+				else:
+					selected_print_ = lambda: selected_print("4", "Baixando todas as fotos principais dos álbuns selecionados!")
+					selected_print_()
+				self.console.print("\nInsira os links dos álbuns para download. ([#baa6ff]digite [u b]ok[/] para executar![/])")
+				urls = []
+				while True:
+					url = prompt.Prompt.ask("[#6149ab b]link[/]")
+					url = url.lower()
+					if url == "ok":
+						if len(urls) != 0:
+							break
+						self.console.print(f'[b #c7383f]insira um link pelo menos antes de iniciar![/]\n')
+					elif "yupoo" not in url:
+						self.console.print(f'[b #c7383f]ultimo link não considerado, link inválido!\nlembre-se de inserir apenas catálogos do site Yupoo![/]\n')
+					elif "https://" not in url:
+						self.console.print(f'[b #c7383f]ultimo link não considerado, link inválido!\nlembre-se de colocar "https://"[/]\n')
+					else:
+						urls.append(url)
+				if opt == "3":
+					clear()
+					self.default()
+					selected_print_()
+					asyncio.run(YupooDownloader(all_albums=False, urls=urls, cover=False).main())
+				else:
+					clear()
+					self.default()
+					selected_print_()
+					asyncio.run(YupooDownloader(all_albums=False, urls=urls, cover=True).main())
+		except Exception as e:
+			raise Exception(e)
 
-	async def find_key(self, d, value):
-		for k,v in d.items():
-				if isinstance(v, dict):
-						p = await self.find_key(v, value)
-						if p:
-							return [k] + p
-				elif isinstance(v, list) == True and k == "imgs":
-					if value in v:
-						return [k]
-				elif v == value:
-						return [k]
+	def default(self):
+		self.console.print(self.st1np)
+		self.console.print("[#ffffff]Github:[/] [default]https://github.com/st1np/[/] \n[#ffffff]Sugestões, reportar bugs:[/] [default]xxxx[/]")
+		print()
+		self.console.print(Panel.fit("[#ffffff]Considere ajudar o [bold #4912ff]PROJETO[/][/]!\n[#ffffff]Chave [bold u #0ba162]PIX[/]: [bold #00ff73]xxxxxxx[/]", title="[blink #4912ff]***[/]", subtitle="[blink #4912ff]***[/]"))
 
-if __name__ == "__main__":
-	import gui
+	def edit_rich(self):
+		def choices_style(style='prompt.choices'):
+			prompt.PromptBase.make_prompt = make_prompt(style=style, DefaultType=prompt.DefaultType, Text=Text)
+		def default_style(style='prompt.default', path="Confirm"):
+			if path == "Confirm":
+				prompt.Confirm.render_default = render_default(path=path, style=style,DefaultType=prompt.DefaultType, Text=Text)
+			elif path == "Prompt":
+				prompt.PromptBase.render_default = render_default(path=path,style=style,DefaultType=prompt.DefaultType, Text=Text)
+
+		prompt.Confirm.choices = ['s', 'n']
+		prompt.Confirm.validate_error_message = 'Digite apenas [bold #0ba162]S[/] e [bold #c7383f]N[/]\n'
+		prompt.PromptBase.illegal_choice_message = '[#c7383f]Por favor, selecione uma das opções disponíveis'
+		choices_style('bold #baa6ff')
+		default_style('bold #baa6ff')
+		default_style('bold #6149ab', 'Prompt')
+
+	def parse_nick(self):
+		nick = Text('''
+       __  ___          
+  ___ / /_<  /___   ___ 
+ (_-</ __// // _ \ / _ \\
+/___/\__//_//_//_// .__/
+                 /_/  
+		''', style='bold #4912ff')
+		def change_color(regex_list, color):
+			for regex in regex_list:
+				nick.highlight_regex(regex, color)
+
+		regex_1 = [r'  ___    ', r'<  /', r'// //', r'//_//'] # #baa6ff
+		regex_2 = [r'/ _ ', r' __/', r'\\__/', r'_//_// \.__/'] # #4912ff
+		change_color(regex_1, 'b #baa6ff')
+		change_color(regex_2, 'b #4912ff')
+		
+		return nick
+
+try:
+	clear()
+	app = App().main()
+	sleep(10)
+except KeyboardInterrupt:
+	clear()
+	app = None
+	clear()
