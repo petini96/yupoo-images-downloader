@@ -16,7 +16,6 @@ clear()
 
 class App():
 	def __init__(self):
-		self.start_time = perf_counter()
 		self.console = Console(color_system="auto")
 		self.st1np = self.parse_nick()
 
@@ -39,7 +38,7 @@ class App():
 			self.console.print(f"\n[b #c7383f]{e}[/]")
 			return
 		self.console.print(f"\n[b #0ba162]Concluido! Imagens salvas na área de trabalho.[/]")
-		self.console.print(f"Tempo gasto: [b #0ba162]{perf_counter()-self.start_time}[/]")
+		self.console.print(f"Tempo gasto: [b #0ba162]{round(perf_counter()-self.start_time, 2)}[/]")
 
 	def execute_answer(self, opt):
 		try:
@@ -53,6 +52,7 @@ class App():
 					clear()
 					self.default()
 					selected_print_()
+					self.start_time = perf_counter()
 					asyncio.run(YupooDownloader(all_albums=True, urls=url, cover=False).main())
 				else:
 					selected_print_ = lambda: selected_print("2", "Baixando todas as fotos principais do catálogo!")
@@ -62,6 +62,7 @@ class App():
 					clear()
 					self.default()
 					selected_print_()
+					self.start_time = perf_counter()
 					asyncio.run(YupooDownloader(all_albums=True, urls=url, cover=True).main())
 			elif opt == "3" or opt == "4":
 				if opt == "3":
@@ -89,11 +90,13 @@ class App():
 					clear()
 					self.default()
 					selected_print_()
+					self.start_time = perf_counter()
 					asyncio.run(YupooDownloader(all_albums=False, urls=urls, cover=False).main())
 				else:
 					clear()
 					self.default()
 					selected_print_()
+					self.start_time = perf_counter()
 					asyncio.run(YupooDownloader(all_albums=False, urls=urls, cover=True).main())
 		except Exception as e:
 			raise Exception(e)
