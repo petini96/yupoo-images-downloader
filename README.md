@@ -1,4 +1,6 @@
+[<img align="right" alt="Donate with PayPal button" src="https://www.paypalobjects.com/en_US/i/btn/btn_donate_LG.gif">](https://www.paypal.com/donate/?hosted_button_id=UC7G8Q6TP6YN2)
 # Yupoo Images Downloader
+
 ## Portuguese
 O **Yupoo Images Downloader** é um programa desenvolvido em <ins>Python</ins> e com sua GUI a partir do console padrão, este programa tem como funções:
 * Baixar todas as imagens de um catálogo localizado no site [*Yupoo*](https://x.yupoo.com/);
