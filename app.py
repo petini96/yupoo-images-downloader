@@ -29,27 +29,32 @@ class App():
 		self.console.print("[b #baa6ff]4.[/] Inserir álbuns para baixar apenas a foto principal.")
 
 		self.edit_rich()
-		opt = prompt.Prompt.ask("\n[b #6149ab]>>[/]  Selecione uma opção", choices=["1", "2", "3", "4"], default="4")
+		self.opt = prompt.Prompt.ask("\n[b #6149ab]>>[/]  Selecione uma opção", choices=["1", "2", "3", "4"], default="4")
 		clear()
 		self.default()
 		try:
-			self.execute_answer(opt)
+			self.execute_answer()
 		except Exception as e:
 			self.console.print(f"\n[b #c7383f]{e}[/]")
 			return
-		self.console.print(f"\n[b #0ba162]Concluido! Imagens salvas na área de trabalho.[/]")
+		self.console.print(f"\n[b #0ba162]Concluido! Imagens salvas na área de trabalho, na pasta chamada fotos_camisa.[/]")
 		self.console.print(f"Tempo gasto: [b #0ba162]{round(perf_counter()-self.start_time, 2)}[/]")
 
-	def execute_answer(self, opt):
+	def execute_answer(self):
 		try:
 			selected_print = lambda option, text: self.console.print(f"\nOpção [b #6149ab]{option}[/] selecionada: [b #baa6ff]{text}[/]")
-			if opt == "1" or opt == "2":
-				if opt == "1":
+			if self.opt == "1" or self.opt == "2":
+				if self.opt == "1":
 					selected_print_ = lambda: selected_print("1", "Baixando todas as fotos do catálogo!")
 					selected_print_()
 					self.console.print("\nInsira o link do catálogo.")
-					url = prompt.Prompt.ask("[#6149ab b]link[/]")
+					while True:
+						url = prompt.Prompt.ask("[#6149ab b]link[/]")
+						url = self.verify_url(url)
+						if url != None:
+							break
 					clear()
+					print(url)
 					self.default()
 					selected_print_()
 					self.start_time = perf_counter()
@@ -58,48 +63,61 @@ class App():
 					selected_print_ = lambda: selected_print("2", "Baixando todas as fotos principais do catálogo!")
 					selected_print_()
 					self.console.print("\nInsira o link do catálogo.")
-					url = prompt.Prompt.ask("[#6149ab b]link[/]")
+					while True:
+						url = prompt.Prompt.ask("[#6149ab b]link[/]")
+						url = self.verify_url(url)
+						if url != None:
+							break
 					clear()
 					self.default()
 					selected_print_()
 					self.start_time = perf_counter()
 					asyncio.run(YupooDownloader(all_albums=True, urls=url, cover=True).main())
-			elif opt == "3" or opt == "4":
-				if opt == "3":
+			elif self.opt == "3" or self.opt == "4":
+				if self.opt == "3":
 					selected_print_ = lambda: selected_print("3", "Baixando todas as fotos dos álbuns selecionados!")
 					selected_print_()
 				else:
 					selected_print_ = lambda: selected_print("4", "Baixando todas as fotos principais dos álbuns selecionados!")
 					selected_print_()
 				self.console.print("\nInsira os links dos álbuns para download. ([#baa6ff]digite [u b]ok[/] para executar![/])")
-				urls = []
+				self.urls = []
 				while True:
 					url = prompt.Prompt.ask("[#6149ab b]link[/]")
 					url = url.lower()
 					if url == "ok":
-						if len(urls) != 0:
+						if len(self.urls) != 0:
 							break
 						self.console.print(f'[b #c7383f]insira um link pelo menos antes de iniciar![/]\n')
-					elif "yupoo" not in url:
-						self.console.print(f'[b #c7383f]ultimo link não considerado, link inválido!\nlembre-se de inserir apenas catálogos do site Yupoo![/]\n')
-					elif "https://" not in url:
-						self.console.print(f'[b #c7383f]ultimo link não considerado, link inválido!\nlembre-se de colocar "https://"[/]\n')
-					else:
-						urls.append(url)
-				if opt == "3":
+					self.verify_url(url)
+				if self.opt == "3":
 					clear()
 					self.default()
 					selected_print_()
 					self.start_time = perf_counter()
-					asyncio.run(YupooDownloader(all_albums=False, urls=urls, cover=False).main())
+					asyncio.run(YupooDownloader(all_albums=False, urls=self.urls, cover=False).main())
 				else:
 					clear()
 					self.default()
 					selected_print_()
 					self.start_time = perf_counter()
-					asyncio.run(YupooDownloader(all_albums=False, urls=urls, cover=True).main())
+					asyncio.run(YupooDownloader(all_albums=False, urls=self.urls, cover=True).main())
 		except Exception as e:
 			raise Exception(e)
+
+	def verify_url(self, url):
+		if "yupoo" not in url:
+			self.console.print(f'[b #c7383f]ultimo link não considerado, link inválido!\nlembre-se de inserir apenas catálogos do site Yupoo![/]\n')
+		elif "https://" not in url:
+			self.console.print(f'[b #c7383f]ultimo link não considerado, link inválido!\nlembre-se de colocar "https://"[/]\n')
+		else:
+			if self.opt == "1" or self.opt == "2":
+				if ".com" not in url[-5:]:
+					self.console.print(f'[b #c7383f]ultimo link não considerado, link inválido!\nnão pode haver nada após ".com", exemplo de link válido: "https://_____.x.yupoo.com/"[/]\n')
+				else:
+					return url
+			elif self.opt == "3" or self.opt == "4":
+				self.urls.append(url)
 
 	def default(self):
 		self.console.print(self.st1np)
@@ -145,7 +163,8 @@ class App():
 try:
 	clear()
 	app = App().main()
-	sleep(10)
+	while True:
+		sleep(1)
 except KeyboardInterrupt:
 	clear()
 	app = None
