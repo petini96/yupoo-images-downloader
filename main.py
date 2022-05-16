@@ -11,7 +11,10 @@ from time import sleep
 from alive_progress import alive_bar
 from rich.console import Console
 
-PATH = str(os.path.join(os.environ["HOMEPATH"], "Desktop")).replace('\\', '/')
+PATH = str(os.path.expanduser("~")).replace("\\", "/")+"/Desktop"
+# loop = asyncio.ProactorEventLoop()
+# asyncio.set_event_loop(loop)
+
 
 class YupooDownloader():
 	def __init__(self, all_albums, urls = None, cover=False):
@@ -34,6 +37,7 @@ class YupooDownloader():
 		self.read_errors = [0]
 
 		self.timeout = aiohttp.ClientTimeout(connect=self.timeout_connect[0], sock_read=self.timeout_read[0])
+		self.oldtimeout = [self.timeout.connect, self.timeout.sock_read]
 
 	class FatalException(Exception):
 		pass
@@ -103,22 +107,35 @@ class YupooDownloader():
 							await self._(self.tasks, self.get_imgs)
 
 	async def async_req(self, url, function = None):
-		def auto_timeout(timeout, control, errors, e, add):
+		timeout_ = [self.timeout.connect, self.timeout.sock_read]
+
+		def auto_timeout(timeout, control, errors, e, add, type):
 			if errors[0] != 0:
+				if type == "connect":
+					difference = timeout_[0] != self.oldtimeout[0]
+				elif type == "read":
+					difference = timeout_[1] != self.oldtimeout[1]
+				if difference:
+					control[0] = 0
+					errors[0] = 0
+					return
 				if control[0] // errors[0] <= e:
+					self.oldtimeout = [self.timeout.connect, self.timeout.sock_read]
 					timeout[0] += add
 					control[0] = 0
 					errors[0] = 0
 					self.timeout = aiohttp.ClientTimeout(connect=self.timeout_connect[0], sock_read=self.timeout_read[0])
-					print(self.timeout)
+				else:
+					control[0] = 0
+					errors[0] = 0
 			else:
 				control[0] = 0
 				errors[0] = 0
 
 		if self.connect_control[0] // 10 >= 1:
-			auto_timeout(self.timeout_connect, self.connect_control, self.connect_errors, 4, 4)
+			auto_timeout(self.timeout_connect, self.connect_control, self.connect_errors, 4, 4, "connect")
 		if self.read_control[0] // 10 >= 1:
-			auto_timeout(self.timeout_read, self.read_control, self.read_errors, 4, 4)
+			auto_timeout(self.timeout_read, self.read_control, self.read_errors, 4, 4, "read")
 
 		self.connect_control[0] +=1
 		self.read_control[0] +=1
@@ -159,7 +176,6 @@ class YupooDownloader():
 
 			soup = BeautifulSoup(resp.text.encode("ascii", "ignore").decode("utf-8"), "lxml")
 			total_pages = soup.select_one("form.pagination__jumpwrap > span").get_text()
-			print(f"pages: {total_pages}")
 			pages = []
 			for page in range(1, int(total_pages)+1):
 					pages.append(f"{url[:-1]}{page}")
@@ -176,8 +192,8 @@ class YupooDownloader():
 				sleep(1)
 				self.get_pages()
 		except Exception as e:
-			print(e)
-			print('error - get_pages')
+			# print(e)
+			# print('error - get_pages')
 			sleep(1)
 			self.get_pages()
 

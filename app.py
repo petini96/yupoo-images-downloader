@@ -54,7 +54,6 @@ class App():
 						if url != None:
 							break
 					clear()
-					print(url)
 					self.default()
 					selected_print_()
 					self.start_time = perf_counter()
@@ -121,9 +120,9 @@ class App():
 
 	def default(self):
 		self.console.print(self.st1np)
-		self.console.print("[#ffffff]Github:[/] [default]https://github.com/st1np/[/] \n[#ffffff]Sugestões, reportar bugs:[/] [default](12) 9 8137-2725[/]")
+		self.console.print("[#ffffff]Github:[/] [default]https://github.com/st1np/[/] \n[#ffffff]Sugestões, reportar bugs:[/] [default](12) 9 8137-2735[/]")
 		print()
-		self.console.print(Panel.fit("[#ffffff]Considere ajudar o [bold #4912ff]PROJETO[/][/]!\n[#ffffff]Chave [bold u #0ba162]PIX[/]: [bold #00ff73](12) 9 8137-2725[/]", title="[blink #4912ff]***[/]", subtitle="[blink #4912ff]***[/]"))
+		self.console.print(Panel.fit("[#ffffff]Considere ajudar o [bold #4912ff]PROJETO[/][/]!\n[#ffffff]Chave [bold u #0ba162]PIX[/]: [bold #00ff73](12) 9 8137-2735[/]", title="[blink #4912ff]***[/]", subtitle="[blink #4912ff]***[/]"))
 
 	def edit_rich(self):
 		def choices_style(style='prompt.choices'):
