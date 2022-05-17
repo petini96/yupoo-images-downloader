@@ -37,7 +37,7 @@ class App():
 		except Exception as e:
 			self.console.print(f"\n[b #c7383f]{e}[/]")
 			return
-		self.console.print(f"\n[b #0ba162]Concluido! Imagens salvas na área de trabalho, na pasta chamada fotos_camisa.[/]")
+		self.console.print(f"\n[b #0ba162]Concluído! Imagens salvas na área de trabalho, na pasta chamada fotos_camisa.[/]")
 		self.console.print(f"Tempo gasto: [b #0ba162]{round(perf_counter()-self.start_time, 2)}[/]")
 
 	def execute_answer(self):

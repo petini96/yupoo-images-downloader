@@ -1,5 +1,8 @@
-import asyncio
+if __name__ == "__main__":
+	import app
+
 import os
+import asyncio
 import re
 import aiohttp
 import aiofiles
@@ -11,10 +14,7 @@ from time import sleep
 from alive_progress import alive_bar
 from rich.console import Console
 
-PATH = str(os.path.expanduser("~")).replace("\\", "/")+"/Desktop"
-# loop = asyncio.ProactorEventLoop()
-# asyncio.set_event_loop(loop)
-
+PATH = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop').replace('\\', '/')
 
 class YupooDownloader():
 	def __init__(self, all_albums, urls = None, cover=False):
@@ -78,7 +78,6 @@ class YupooDownloader():
 					await self._(self.tasks, self.get_album)
 
 			#downloading imgs in albums
-			self.console.print('\n[#6149ab]Baixando as imagens dos álbuns[#6149ab]')
 			self.tasks=[]
 			if self.all_albums:
 				for page in self.albums:
@@ -91,11 +90,14 @@ class YupooDownloader():
 								continue
 							self.tasks.append(asyncio.ensure_future(self.async_req(img_link, self.get_imgs)))
 					if len(self.tasks) > 0:
+						self.console.print('\n[#6149ab]Baixando as imagens dos álbuns[#6149ab]')
 						with alive_bar(len(self.tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
 							await self._(self.tasks, self.get_imgs)
 			else:
 					for album in self.albums:
 						for img in self.albums[album]['imgs']:
+							if img == "video":
+								continue
 							img_link = img
 							img_title = re.findall(r'/((?:(?!/).)*)$', img_link)[0].split('.')[0] #/((?:(?!/).)*)$
 							path = f"{PATH}/fotos_camisa/{album}/{img_title}.jpg"
@@ -103,6 +105,7 @@ class YupooDownloader():
 								continue
 							self.tasks.append(asyncio.ensure_future(self.async_req(img_link, self.get_imgs)))
 					if len(self.tasks) > 0:
+						self.console.print('\n[#6149ab]Baixando as imagens dos álbuns[#6149ab]')
 						with alive_bar(len(self.tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
 							await self._(self.tasks, self.get_imgs)
 
@@ -221,6 +224,10 @@ class YupooDownloader():
 			self.error = 'não encontrado imagens no álbum, link potencialmente inválido!\n'
 			raise self.FatalException()
 		for img in album_div:
+			typee_ = soup.select_one(".image__imagewrap")
+			if typee_.get("data-type") == "video":
+				album_imgs_links.append(f"video")
+				continue
 			img = img.find("img")
 			src = img.get("data-origin-src") #data-origin-src
 			if self.cover:
@@ -260,9 +267,8 @@ class YupooDownloader():
 				await f.write(r[0])
 			self.bar()
 		except Exception as e:
-			None
-			# print(e)
-
+			self.error = f'error write file: {e}'
+			raise self.FatalException
 	async def _(self, tasks, function):
 		try:
 			resp = await asyncio.gather(*self.tasks)
@@ -299,6 +305,3 @@ class YupooDownloader():
 						return [k]
 				elif v == value:
 						return [k]
-
-if __name__ == "__main__":
-	import app
