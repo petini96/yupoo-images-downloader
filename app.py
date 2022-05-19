@@ -1,4 +1,5 @@
 import os
+os.environ['PYTHONASYNCIODEBUG'] = '1'
 import asyncio
 from time import sleep, perf_counter
 asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
