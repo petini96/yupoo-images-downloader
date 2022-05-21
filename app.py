@@ -108,7 +108,7 @@ class App():
 	def verify_url(self, url):
 		if "yupoo" not in url:
 			self.console.print(f'[b #c7383f]ultimo link não considerado, link inválido!\nlembre-se de inserir apenas catálogos do site Yupoo![/]\n')
-		elif "https://" not in url:
+		elif "https://" != url[0:8]:
 			self.console.print(f'[b #c7383f]ultimo link não considerado, link inválido!\nlembre-se de colocar "https://"[/]\n')
 		else:
 			if self.opt == "1" or self.opt == "2":

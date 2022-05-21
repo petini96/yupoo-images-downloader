@@ -4,9 +4,8 @@ if __name__ == "__main__":
 import os
 os.environ['PYTHONASYNCIODEBUG'] = '1'
 
-LOG_PATH = os.path.dirname(__file__)
-
 import logging
+LOG_PATH = os.path.dirname(__file__)
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 formatter = logging.Formatter(fmt='%(asctime)s - %(levelname)s - %(message)s', datefmt='%d/%m/%Y %H:%M:%S')
@@ -28,6 +27,13 @@ import regex
 from time import sleep, perf_counter
 from alive_progress import alive_bar
 from rich.console import Console
+from exif import Image
+from PIL import Image as PImage
+import io
+
+import ssl
+import certifi
+sslcontext = ssl.create_default_context(cafile=certifi.where())
 
 PATH = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop').replace('\\', '/')
 
@@ -177,7 +183,7 @@ class YupooDownloader():
 		self.read_control[0] +=1
 
 		try:
-			async with self.session.get(url, timeout=self.timeout, headers=self.headers) as resp:
+			async with self.session.get(url, timeout=self.timeout, headers=self.headers, ssl=sslcontext) as resp:
 				if resp.status == 200:
 					if 'get_imgs' in repr(function):
 						await function([await resp.read(), resp.status, url])
@@ -296,10 +302,28 @@ class YupooDownloader():
 		path = f"{PATH}/fotos_camisa/{album}"
 		if os.path.exists(path) == False:
 			os.makedirs(path)
-				
+
 		try:
-			async with aiofiles.open(f'{PATH}/fotos_camisa/{album}/{img_title}.jpg', mode='wb') as f:
-				await f.write(r[0])
+			async with aiofiles.open(f'{PATH}/fotos_camisa/{album}/{img_title}.jpeg', mode='wb') as f:
+				r[0] = Image(r[0])
+				old_v = r[0]["orientation"].value
+				if old_v != 1:
+					r[0]["orientation"] = 1
+					r[0] = r[0].get_file()
+					img__ = PImage.open(io.BytesIO(r[0]))
+					if old_v == 6: img__ = img__.rotate(-90)
+					elif old_v == 8: img__ = img__.rotate(90)
+					elif old_v == 3: img__ = img__.rotate(180)
+					elif old_v == 2: img__ = img__.transpose(PImage.FLIP_LEFT_RIGHT)
+					elif old_v == 5: img__ = img__.rotate(-90).transpose(PImage.FLIP_LEFT_RIGHT)
+					elif old_v == 7: img__ = img__.rotate(90).transpose(PImage.FLIP_LEFT_RIGHT)
+					elif old_v == 4: img__ = img__.rotate(180).transpose(PImage.FLIP_LEFT_RIGHT)
+					img_byte_arr = io.BytesIO()
+					img__.save(img_byte_arr, format="JPEG")
+					img_byte_arr = img_byte_arr.getvalue()
+					await f.write(img_byte_arr)
+				else:
+					await f.write(r[0].get_file())
 			self.bar()
 		except Exception as e:
 			self.error = f'error write file: {e}'
