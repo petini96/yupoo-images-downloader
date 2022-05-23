@@ -22,7 +22,7 @@ class App():
 
 	def main(self):
 		self.default()
-		self.console.print("\nPrograma desenvolvido para te ajudar a baixar \nimagens com qualidade para postagem do site da [#0ba162]Yupoo[/]!")
+		self.console.print("\nPrograma desenvolvido para te ajudar a baixar \nimagens com qualidade e facilmente do site da [#0ba162]Yupoo[/]!")
 		self.console.print("\n[b #6149ab]Opções[/]")
 		self.console.print("[b #baa6ff]1.[/] Baixe todas as imagens de todos os álbuns. ([bold u #c7383f]pesado[/])")
 		self.console.print("[b #baa6ff]2.[/] Baixar apenas a foto principal de todos álbuns.")
@@ -38,7 +38,7 @@ class App():
 		except Exception as e:
 			self.console.print(f"\n[b #c7383f]{e}[/]")
 			return
-		self.console.print(f"\n[b #0ba162]Concluído! Imagens salvas na área de trabalho, na pasta chamada fotos_camisa.[/]")
+		self.console.print(f"\n[b #0ba162]Concluído! Imagens salvas na área de trabalho, na pasta chamada fotos_yupoo.[/]")
 		self.console.print(f"Tempo gasto: [b #0ba162]{round(perf_counter()-self.start_time, 2)}[/]")
 
 	def execute_answer(self):
@@ -50,7 +50,7 @@ class App():
 					selected_print_()
 					self.console.print("\nInsira o link do catálogo.")
 					while True:
-						url = prompt.Prompt.ask("[#6149ab b]link[/]")
+						url = prompt.Prompt.ask("[#baa6ff b]link[/]")
 						url = self.verify_url(url)
 						if url != None:
 							break
@@ -64,7 +64,7 @@ class App():
 					selected_print_()
 					self.console.print("\nInsira o link do catálogo.")
 					while True:
-						url = prompt.Prompt.ask("[#6149ab b]link[/]")
+						url = prompt.Prompt.ask("[#baa6ff b]link[/]")
 						url = self.verify_url(url)
 						if url != None:
 							break
@@ -80,7 +80,8 @@ class App():
 				else:
 					selected_print_ = lambda: selected_print("4", "Baixando todas as fotos principais dos álbuns selecionados!")
 					selected_print_()
-				self.console.print("\nInsira os links dos álbuns para download. ([#baa6ff]digite [u b]ok[/] para executar![/])")
+				self.console.print("\nInsira os links dos álbuns para download.")
+				self.console.print("([#baa6ff]digite [#0ba162 b]ok[/] para executar e [#c7383f b]del[/] para cancelar o último link inserido[/])\n")
 				self.urls = []
 				while True:
 					url = prompt.Prompt.ask("[#6149ab b]link[/]")
@@ -88,8 +89,15 @@ class App():
 					if url == "ok":
 						if len(self.urls) != 0:
 							break
-						self.console.print(f'[b #c7383f]insira um link pelo menos antes de iniciar![/]\n')
-					self.verify_url(url)
+						self.console.print(f'[b #c7383f]insira pelo menos um link antes de iniciar![/]\n')
+					elif url == "del":
+						if len(self.urls) != 0:
+							self.urls.pop()
+							self.console.print(f'último link [#c7383f]removido[/]!\n')
+						else:
+							self.console.print(f'[b #c7383f]insira pelo menos um link antes de remover![/]\n')
+					else:
+						self.verify_url(url)
 				if self.opt == "3":
 					clear()
 					self.default()
@@ -121,8 +129,10 @@ class App():
 
 	def default(self):
 		self.console.print(self.st1np)
-		self.console.print("[#ffffff]Github:[/] [default]https://github.com/st1np/[/] \n[#ffffff]Sugestões, reportar bugs:[/] [default](12) 9 8137-2735[/]")
-		print()
+		self.console.print("[#baa6ff]Aplicação [#6149ab b]v1.2.2[/], desenvolvida por [#6149ab b]st1np[/]![/]\n")
+		self.console.print("[#ffffff]Github:[/] [default]https://github.com/st1np/[/]")
+		self.console.print("[#ffffff]Telegram:[/] [default]https://t.me/appyupoo[/]")
+		self.console.print("[#ffffff]Sugestões, reportar bugs:[/] [default](12) 9 8137-2735[/]\n")
 		self.console.print(Panel.fit("[#ffffff]Considere ajudar o [bold #4912ff]PROJETO[/][/]!\n[#ffffff]Chave [bold u #0ba162]PIX[/]: [bold #00ff73](12) 9 8137-2735[/]", title="[blink #4912ff]***[/]", subtitle="[blink #4912ff]***[/]"))
 
 	def edit_rich(self):
@@ -142,13 +152,11 @@ class App():
 		default_style('bold #6149ab', 'Prompt')
 
 	def parse_nick(self):
-		nick = Text('''
-       __  ___          
+		nick = Text('''       __  ___          
   ___ / /_<  /___   ___ 
  (_-</ __// // _ \ / _ \\
 /___/\__//_//_//_// .__/
-                 /_/  
-		''', style='bold #4912ff')
+                 /_/  ''', style='bold #4912ff')
 		def change_color(regex_list, color):
 			for regex in regex_list:
 				nick.highlight_regex(regex, color)

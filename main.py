@@ -117,7 +117,7 @@ class YupooDownloader():
 						for img in self.albums[page][album]['imgs']:
 							img_link = img
 							img_title = re.findall(r'/((?:(?!/).)*)$', img_link)[0].split('.')[0] #/((?:(?!/).)*)$
-							path = f"{PATH}/fotos_camisa/{album}/{img_title}.jpg"
+							path = f"{PATH}/fotos_yupoo/{album}/{img_title}.jpg"
 							if os.path.exists(path) == True:
 								continue
 							self.tasks.append(asyncio.ensure_future(self.async_req(img_link, self.get_imgs)))
@@ -134,7 +134,7 @@ class YupooDownloader():
 								continue
 							img_link = img
 							img_title = re.findall(r'/((?:(?!/).)*)$', img_link)[0].split('.')[0] #/((?:(?!/).)*)$
-							path = f"{PATH}/fotos_camisa/{album}/{img_title}.jpg"
+							path = f"{PATH}/fotos_yupoo/{album}/{img_title}.jpg"
 							if os.path.exists(path) == True:
 								continue
 							self.tasks.append(asyncio.ensure_future(self.async_req(img_link, self.get_imgs)))
@@ -299,31 +299,34 @@ class YupooDownloader():
 		except:
 			return
 
-		path = f"{PATH}/fotos_camisa/{album}"
+		path = f"{PATH}/fotos_yupoo/{album}"
 		if os.path.exists(path) == False:
 			os.makedirs(path)
 
 		try:
-			async with aiofiles.open(f'{PATH}/fotos_camisa/{album}/{img_title}.jpeg', mode='wb') as f:
-				r[0] = Image(r[0])
-				old_v = r[0]["orientation"].value
-				if old_v != 1:
-					r[0]["orientation"] = 1
-					r[0] = r[0].get_file()
-					img__ = PImage.open(io.BytesIO(r[0]))
-					if old_v == 6: img__ = img__.rotate(-90)
-					elif old_v == 8: img__ = img__.rotate(90)
-					elif old_v == 3: img__ = img__.rotate(180)
-					elif old_v == 2: img__ = img__.transpose(PImage.FLIP_LEFT_RIGHT)
-					elif old_v == 5: img__ = img__.rotate(-90).transpose(PImage.FLIP_LEFT_RIGHT)
-					elif old_v == 7: img__ = img__.rotate(90).transpose(PImage.FLIP_LEFT_RIGHT)
-					elif old_v == 4: img__ = img__.rotate(180).transpose(PImage.FLIP_LEFT_RIGHT)
-					img_byte_arr = io.BytesIO()
-					img__.save(img_byte_arr, format="JPEG")
-					img_byte_arr = img_byte_arr.getvalue()
-					await f.write(img_byte_arr)
+			async with aiofiles.open(f'{PATH}/fotos_yupoo/{album}/{img_title}.jpeg', mode='wb') as f:
+				image = Image(r[0])
+				if image.has_exif:
+					old_v = image["orientation"].value
+					if old_v != 1:
+						image["orientation"] = 1
+						image = image.get_file()
+						img__ = PImage.open(io.BytesIO(image))
+						if old_v == 6: img__ = img__.rotate(-90)
+						elif old_v == 8: img__ = img__.rotate(90)
+						elif old_v == 3: img__ = img__.rotate(180)
+						elif old_v == 2: img__ = img__.transpose(PImage.FLIP_LEFT_RIGHT)
+						elif old_v == 5: img__ = img__.rotate(-90).transpose(PImage.FLIP_LEFT_RIGHT)
+						elif old_v == 7: img__ = img__.rotate(90).transpose(PImage.FLIP_LEFT_RIGHT)
+						elif old_v == 4: img__ = img__.rotate(180).transpose(PImage.FLIP_LEFT_RIGHT)
+						img_byte_arr = io.BytesIO()
+						img__.save(img_byte_arr, format="JPEG")
+						img_byte_arr = img_byte_arr.getvalue()
+						await f.write(img_byte_arr)
+					else:
+						await f.write(r[0])
 				else:
-					await f.write(r[0].get_file())
+					await f.write(r[0])
 			self.bar()
 		except Exception as e:
 			self.error = f'error write file: {e}'
