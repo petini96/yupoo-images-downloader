@@ -5,12 +5,12 @@ import os
 os.environ['PYTHONASYNCIODEBUG'] = '1'
 
 import logging
-LOG_PATH = os.path.dirname(__file__)
+DEFAULT_PATH = os.path.dirname(__file__)
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 formatter = logging.Formatter(fmt='%(asctime)s - %(levelname)s - %(message)s', datefmt='%d/%m/%Y %H:%M:%S')
 
-fh = logging.FileHandler(f"{LOG_PATH}/info.log",mode="a",encoding="utf-8")
+fh = logging.FileHandler(f"{DEFAULT_PATH}/info.log",mode="a",encoding="utf-8")
 fh.setFormatter(formatter)
 logger.addHandler(fh)
 
@@ -35,7 +35,11 @@ import ssl
 import certifi
 sslcontext = ssl.create_default_context(cafile=certifi.where())
 
-PATH = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop').replace('\\', '/')
+import json
+with open(DEFAULT_PATH + '/config.json', 'r') as f:
+	config = json.load(f)
+OUTPUT_PATH = config['path_to_save']
+logger.info(OUTPUT_PATH)
 
 class YupooDownloader():
 	def __init__(self, all_albums, urls = None, cover=False):
@@ -125,7 +129,7 @@ class YupooDownloader():
 								img_link = img
 								if img_link == "video": continue
 								img_title = re.findall(r'/((?:(?!/).)*)$', img_link)[0].split('.')[0] #/((?:(?!/).)*)$
-								path = f"{PATH}/fotos_yupoo/{album}/{img_title}.jpg"
+								path = f"{OUTPUT_PATH}/fotos_yupoo/{album}/{img_title}.jpg"
 								if os.path.exists(path) == True:
 									continue
 								self.tasks.append(asyncio.ensure_future(self.async_req(img_link, self.get_imgs)))
@@ -140,7 +144,7 @@ class YupooDownloader():
 								continue
 							img_link = img
 							img_title = re.findall(r'/((?:(?!/).)*)$', img_link)[0].split('.')[0] #/((?:(?!/).)*)$
-							path = f"{PATH}/fotos_yupoo/{album}/{img_title}.jpg"
+							path = f"{OUTPUT_PATH}/fotos_yupoo/{album}/{img_title}.jpg"
 							if os.path.exists(path) == True:
 								continue
 							self.tasks.append(asyncio.ensure_future(self.async_req(img_link, self.get_imgs)))
@@ -308,12 +312,12 @@ class YupooDownloader():
 		except:
 			return
 
-		path = f"{PATH}/fotos_yupoo/{album}"
+		path = f"{OUTPUT_PATH}/fotos_yupoo/{album}"
 		if os.path.exists(path) == False:
 			os.makedirs(path)
 
 		try:
-			async with aiofiles.open(f'{PATH}/fotos_yupoo/{album}/{img_title}.jpeg', mode='wb') as f:
+			async with aiofiles.open(f'{OUTPUT_PATH}/fotos_yupoo/{album}/{img_title}.jpeg', mode='wb') as f:
 				image = Image(r[0])
 				if image.has_exif:
 					try:

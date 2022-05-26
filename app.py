@@ -1,5 +1,7 @@
 import os
 os.environ['PYTHONASYNCIODEBUG'] = '1'
+
+CONFIG_PATH = os.path.dirname(__file__).replace("\\", "/")+"/config.json"
 import asyncio
 from time import sleep, perf_counter
 asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -9,7 +11,10 @@ from rich.text import Text
 from rich.panel import Panel
 import rich.prompt as prompt
 
-from main import YupooDownloader
+from tkinter import filedialog
+import tkinter as tk
+import json
+
 from edit_rich import make_prompt, render_default
 
 clear = lambda: os.system("cls")
@@ -41,12 +46,43 @@ class App():
 			with open("info.log", "a") as f:
 				f.write(traceback.format_exc()+"\n-\n")
 			return
-		self.console.print(f"\n[b #0ba162]Concluído! Imagens salvas na área de trabalho, na pasta chamada fotos_yupoo.[/]")
+		self.console.print(f"\n[b #0ba162]Concluído! Imagens salvas no diretório {self.path_to_save}, na pasta chamada fotos_yupoo.[/]")
 		self.console.print(f"Tempo gasto: [b #0ba162]{round(perf_counter()-self.start_time, 2)}[/]")
 
 	def execute_answer(self):
 		try:
-			selected_print = lambda option, text: self.console.print(f"\nOpção [b #6149ab]{option}[/] selecionada: [b #baa6ff]{text}[/]")
+			selected_print = lambda option, text: self.console.print(f"\nOpção [b #6149ab]{option}[/] selecionada: [b #baa6ff]{text}[/]")\
+			
+			def choose_path():
+				self.console.print("\nEscolha o [#baa6ff b]diretório padrão[/] para salvar as fotos.")
+				root = tk.Tk()
+				root.withdraw()
+				while True:
+					self.path_to_save = filedialog.askdirectory()
+					if self.path_to_save != "":
+						break
+				with open("config.json", "w") as f:
+					config = {'path_to_save': self.path_to_save}
+					json.dump(config, f)
+
+			if os.path.exists(CONFIG_PATH):
+				with open("config.json", "r") as f:
+					config = json.load(f)
+					self.path_to_save = config['path_to_save']
+				if self.path_to_save != "":
+					self.console.print(f"\nDiretório padrão: [b #baa6ff]{self.path_to_save}[/]")
+					opt = prompt.Confirm.ask("O diretório para salvar as fotos está correto?", default=True)
+					if opt == False:
+						choose_path()
+				else:
+					choose_path()
+					
+			else:
+				choose_path()
+					
+			clear()
+			self.default()
+			from main import YupooDownloader
 			if self.opt == "1" or self.opt == "2":
 				if self.opt == "1":
 					selected_print_ = lambda: selected_print("1", "Baixando todas as fotos do catálogo!")
@@ -154,7 +190,7 @@ class App():
 		prompt.Confirm.validate_error_message = 'Digite apenas [bold #0ba162]S[/] e [bold #c7383f]N[/]\n'
 		prompt.PromptBase.illegal_choice_message = '[#c7383f]Por favor, selecione uma das opções disponíveis'
 		choices_style('bold #baa6ff')
-		default_style('bold #baa6ff')
+		default_style('bold #6149ab')
 		default_style('bold #6149ab', 'Prompt')
 
 	def parse_nick(self):
