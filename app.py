@@ -37,6 +37,9 @@ class App():
 			self.execute_answer()
 		except Exception as e:
 			self.console.print(f"\n[b #c7383f]{e}[/]")
+			import traceback
+			with open("info.log", "a") as f:
+				f.write(traceback.format_exc()+"\n-\n")
 			return
 		self.console.print(f"\n[b #0ba162]Concluído! Imagens salvas na área de trabalho, na pasta chamada fotos_yupoo.[/]")
 		self.console.print(f"Tempo gasto: [b #0ba162]{round(perf_counter()-self.start_time, 2)}[/]")
@@ -118,6 +121,9 @@ class App():
 			self.console.print(f'[b #c7383f]ultimo link não considerado, link inválido!\nlembre-se de inserir apenas catálogos do site Yupoo![/]\n')
 		elif "https://" != url[0:8]:
 			self.console.print(f'[b #c7383f]ultimo link não considerado, link inválido!\nlembre-se de colocar "https://"[/]\n')
+		elif "categories" in url:
+			self.console.print(f'[b #c7383f]ultimo link não considerado, link inválido!\nainda não é possível baixar uma categoria especifica!\n')
+
 		else:
 			if self.opt == "1" or self.opt == "2":
 				if ".com" not in url[-5:]:
