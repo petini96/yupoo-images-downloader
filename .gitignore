@@ -2,3 +2,5 @@ teste.py
 __pycache__/*
 .md
 requirements.txt
+*.json
+info.log
