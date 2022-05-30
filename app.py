@@ -1,4 +1,5 @@
 import os
+import sys
 os.environ['PYTHONASYNCIODEBUG'] = '1'
 
 CONFIG_PATH = os.path.dirname(__file__).replace("\\", "/")+"/config.json"
@@ -35,7 +36,7 @@ class App():
 		self.console.print("[b #baa6ff]4.[/] Inserir álbuns para baixar apenas a foto principal.")
 
 		self.edit_rich()
-		self.opt = prompt.Prompt.ask("\n[b #6149ab]>>[/]  Selecione uma opção", choices=["1", "2", "3", "4"], default="4")
+		self.opt = prompt.Prompt.ask("\n[b #6149ab]>>[/]  Selecione uma opção", choices=["1", "2", "3", "4"], default="3")
 		clear()
 		self.default()
 		try:
@@ -48,6 +49,26 @@ class App():
 			return
 		self.console.print(f"\n[b #0ba162]Concluído! Imagens salvas no diretório {self.path_to_save}, na pasta chamada fotos_yupoo.[/]")
 		self.console.print(f"Tempo gasto: [b #0ba162]{round(perf_counter()-self.start_time, 2)}[/]")
+
+		import subprocess
+		FILEBROWSER_PATH = os.path.join(os.getenv('WINDIR'), 'explorer.exe')
+
+		def explore(path):
+			# explorer would choke on forward slashes
+			path = os.path.normpath(path)
+
+			if os.path.isdir(path):
+					subprocess.run([FILEBROWSER_PATH, path])
+			elif os.path.isfile(path):
+					subprocess.run([FILEBROWSER_PATH, '/select,', path])
+
+		explore(self.path_to_save+"/fotos_yupoo")
+
+		opt = prompt.Confirm.ask("\nDeseja executar o programa novamente?", default=True)
+		if opt:
+			os.execl(sys.executable, sys.executable, *sys.argv)
+		else:
+			sys.exit()
 
 	def execute_answer(self):
 		try:
@@ -89,7 +110,7 @@ class App():
 					selected_print_()
 					self.console.print("\nInsira o link do catálogo.")
 					while True:
-						url = prompt.Prompt.ask("[#baa6ff b]link[/]")
+						url = prompt.Prompt.ask("[#6149ab b]link[/]")
 						url = self.verify_url(url)
 						if url != None:
 							break
@@ -97,13 +118,13 @@ class App():
 					self.default()
 					selected_print_()
 					self.start_time = perf_counter()
-					asyncio.run(YupooDownloader(all_albums=True, urls=url, cover=False).main())
+					asyncio.get_event_loop().run_until_complete(YupooDownloader(all_albums=True, urls=url, cover=False).main())
 				else:
 					selected_print_ = lambda: selected_print("2", "Baixando todas as fotos principais do catálogo!")
 					selected_print_()
 					self.console.print("\nInsira o link do catálogo.")
 					while True:
-						url = prompt.Prompt.ask("[#baa6ff b]link[/]")
+						url = prompt.Prompt.ask("[#6149ab b]link[/]")
 						url = self.verify_url(url)
 						if url != None:
 							break
@@ -111,7 +132,7 @@ class App():
 					self.default()
 					selected_print_()
 					self.start_time = perf_counter()
-					asyncio.run(YupooDownloader(all_albums=True, urls=url, cover=True).main())
+					asyncio.get_event_loop().run_until_complete(YupooDownloader(all_albums=True, urls=url, cover=True).main())
 			elif self.opt == "3" or self.opt == "4":
 				if self.opt == "3":
 					selected_print_ = lambda: selected_print("3", "Baixando todas as fotos dos álbuns selecionados!")
@@ -142,13 +163,13 @@ class App():
 					self.default()
 					selected_print_()
 					self.start_time = perf_counter()
-					asyncio.run(YupooDownloader(all_albums=False, urls=self.urls, cover=False).main())
+					asyncio.get_event_loop().run_until_complete(YupooDownloader(all_albums=False, urls=self.urls, cover=False).main())
 				else:
 					clear()
 					self.default()
 					selected_print_()
 					self.start_time = perf_counter()
-					asyncio.run(YupooDownloader(all_albums=False, urls=self.urls, cover=True).main())
+					asyncio.get_event_loop().run_until_complete(YupooDownloader(all_albums=False, urls=self.urls, cover=True).main())
 		except Exception as e:
 			raise Exception(e)
 
@@ -171,7 +192,7 @@ class App():
 
 	def default(self):
 		self.console.print(self.st1np)
-		self.console.print("[#baa6ff]Aplicação [#6149ab b]v1.2.2[/], desenvolvida por [#6149ab b]st1np[/]![/]\n")
+		self.console.print("[#baa6ff]Aplicação [#6149ab b]v1.3.0[/], desenvolvida por [#6149ab b]st1np[/]![/]\n")
 		self.console.print("[#ffffff]Github:[/] [default]https://github.com/st1np/[/]")
 		self.console.print("[#ffffff]Telegram:[/] [default]https://t.me/appyupoo[/]")
 		self.console.print("[#ffffff]Sugestões, reportar bugs:[/] [default](12) 9 8137-2735[/]\n")

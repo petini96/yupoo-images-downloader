@@ -1,6 +1,5 @@
 if __name__ == "__main__":
 	import app
-
 import os
 os.environ['PYTHONASYNCIODEBUG'] = '1'
 
@@ -56,14 +55,15 @@ class YupooDownloader():
 
 		self.headers = {
 		'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.54 Safari/537.36', 'referer': "https://yupoo.com/"}
-		self.timeout_connect = [10]
+		self.timeout_connect = [25]
 		self.connect_control = [0]
 		self.connect_errors = [0]
 
-		self.timeout_read = [10]
+		self.timeout_read = [25]
 		self.read_control = [0]
 		self.read_errors = [0]
 
+		self.sem = asyncio.Semaphore(120)
 		self.timeout = aiohttp.ClientTimeout(connect=self.timeout_connect[0], sock_read=self.timeout_read[0])
 		self.oldtimeout = [self.timeout.connect, self.timeout.sock_read]
 
@@ -94,12 +94,8 @@ class YupooDownloader():
 				self.console.print("\n[#6149ab]Pegando as imagens dos álbuns[/]")
 				with alive_bar(len(self.tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
 					self.start_time = perf_counter()
-					_tasks = []
-					for task in self.tasks:
-						_tasks.append(task)
-						if len(_tasks) == 60:
-							await self._(self.tasks, self.get_album)
-					await self._(self.tasks, self.get_album)
+					if len(self.tasks) > 0:
+						await self._(self.tasks, self.get_album)
 				logger.info(self.now())
 
 			else:
@@ -116,6 +112,7 @@ class YupooDownloader():
 
 			#downloading imgs in albums
 			self.tasks=[]
+			self.start_time = perf_counter()
 			if self.all_albums:
 				total = 0
 				for page in self.albums:
@@ -129,22 +126,22 @@ class YupooDownloader():
 								img_link = img
 								if img_link == "video": continue
 								img_title = re.findall(r'/((?:(?!/).)*)$', img_link)[0].split('.')[0] #/((?:(?!/).)*)$
-								path = f"{OUTPUT_PATH}/fotos_yupoo/{album}/{img_title}.jpg"
+								path = f"{OUTPUT_PATH}/fotos_yupoo/{album}/{img_title}.jpeg"
 								if os.path.exists(path) == True:
 									continue
 								self.tasks.append(asyncio.ensure_future(self.async_req(img_link, self.get_imgs)))
 						if len(self.tasks) > 0:
 							logger.info(f"[all_albums] downloading imgs in albums: {len(self.tasks)}")
 							await self._(self.tasks, self.get_imgs)
-				self.start_time = perf_counter()
 			else:
 					for album in self.albums:
 						for img in self.albums[album]['imgs']:
 							if img == "video":
 								continue
 							img_link = img
+							if img_link == "video": continue
 							img_title = re.findall(r'/((?:(?!/).)*)$', img_link)[0].split('.')[0] #/((?:(?!/).)*)$
-							path = f"{OUTPUT_PATH}/fotos_yupoo/{album}/{img_title}.jpg"
+							path = f"{OUTPUT_PATH}/fotos_yupoo/{album}/{img_title}.jpeg"
 							if os.path.exists(path) == True:
 								continue
 							self.tasks.append(asyncio.ensure_future(self.async_req(img_link, self.get_imgs)))
@@ -152,8 +149,8 @@ class YupooDownloader():
 						logger.info(f"[all_albums == False] downloading imgs in albums: {len(self.tasks)}")
 						self.console.print('\n[#6149ab]Baixando as imagens dos álbuns[#6149ab]')
 						with alive_bar(len(self.tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
-							self.start_time = perf_counter()
 							await self._(self.tasks, self.get_imgs)
+							
 			logger.info(self.now())
 			logger.info(f"finish: {round(perf_counter() - self.start_time_class, 2)}")
 
@@ -191,36 +188,64 @@ class YupooDownloader():
 
 		self.connect_control[0] +=1
 		self.read_control[0] +=1
-
-		try:
-			async with self.session.get(url, timeout=self.timeout, headers=self.headers, ssl=sslcontext) as resp:
-				if resp.status == 200:
-					if 'get_imgs' in repr(function):
-						await function([await resp.read(), resp.status, url])
+		
+		async with self.sem:
+			async def req():
+				try:
+					if len(self.connections_alive) < 120 or url in self.connections_alive:
+						if url not in self.connections_alive:
+							self.connections_alive.append(url)
+						async with self.session.get(url, timeout=self.timeout, headers=self.headers, ssl=sslcontext) as resp:
+							if resp.status == 200:
+								self.connections_alive.pop(self.connections_alive.index(url))
+								if 'get_imgs' in repr(function):
+									await function([await resp.read(), resp.status, url])
+								else:
+									self.bar()
+									await function([await resp.text(), resp.status, url])
+							else:
+								await asyncio.sleep(2)
+								await req()
 					else:
-						self.bar()
-						await function([await resp.text(), resp.status, url])
-				else:
-					return await self.async_req(url, function)
-				
-		except self.FatalException:
-			raise self.FatalException()
-		except Exception as e:
-			if "Timeout on reading data from socket" in str(e):
-				# print(self.read_errors, self.read_control)
-				self.read_errors[0] += 1
-			elif "Connection timeout to host" in str(e):
-				self.connect_errors[0] += 1
-			elif url == str(e):
-				self.error = 'link inválido!"'
-				raise self.FatalException()
-			elif "No space left on device" in str(e):
-				self.error = 'sem espaço no computador para baixar as imagens!"'
-				raise self.FatalException()
-			else:
-				self.error = 'erro async!'
-				raise self.FatalException()
-			return await self.async_req(url, function)
+						await asyncio.sleep(0.3)
+						await req()
+				except self.FatalException:
+					raise self.FatalException()
+				except TimeoutError:
+					logger.info('error: TimeoutError')
+					await req()
+				except aiohttp.ServerDisconnectedError:
+					logger.info('error: ServerDisconnectedError')
+					await req()
+				except aiohttp.ClientPayloadError:
+					logger.info('error: ClientPayloadError')
+					await req()
+				except aiohttp.ClientError:
+					logger.info('error: ClientError')
+					await req()
+				except Exception as e:
+					if "Timeout on reading data from socket" in str(e):
+						self.read_errors[0] += 1
+					elif "Connection timeout to host" in str(e):
+						self.connect_errors[0] += 1
+					elif "TimeoutError: [Errno 10060] Connect call failed" in str(e):
+						logger.info(e)
+						await req()
+					elif "[WinError 10054]" in str(e):
+						logger.info(e)
+						await req()
+					elif url == str(e):
+						self.error = 'link inválido!"'
+						raise self.FatalException()
+					elif "No space left on device" in str(e):
+						self.error = 'sem espaço no computador para baixar as imagens!"'
+						raise self.FatalException()
+					else:
+						logger.info(f"erro async: {e}")
+						self.error = 'erro async!'
+						raise self.FatalException()
+					await req()
+			await req()
 
 	def get_pages(self):
 		try:
@@ -350,6 +375,7 @@ class YupooDownloader():
 
 	async def _(self, tasks, function):
 		try:
+			self.connections_alive = []
 			resp = await asyncio.gather(*self.tasks)
 		except self.FatalException:
 			for task in self.tasks:
