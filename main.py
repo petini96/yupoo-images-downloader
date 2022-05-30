@@ -27,9 +27,11 @@ else:
 	from time import sleep, perf_counter
 	from alive_progress import alive_bar
 	from rich.console import Console
-	from exif import Image
-	from PIL import Image as PImage
-	import io
+	import piexif
+	from PIL import ImageFile
+	ImageFile.LOAD_TRUNCATED_IMAGES = True
+	from PIL import Image as Image
+	from io import BytesIO
 
 	import ssl
 	import certifi
@@ -115,23 +117,19 @@ else:
 				self.tasks=[]
 				self.start_time = perf_counter()
 				if self.all_albums:
-					total = 0
 					for page in self.albums:
-							for album in self.albums[page]:
-								total += len(self.albums[page][album]['imgs'])
-					self.console.print('\n[#6149ab]Baixando as imagens dos álbuns[#6149ab]')
-					with alive_bar(total, length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
-						for page in self.albums:
-							for album in self.albums[page]:
-								for img in self.albums[page][album]['imgs']:
-									img_link = img
-									if img_link == "video": continue
-									img_title = re.findall(r'/((?:(?!/).)*)$', img_link)[0].split('.')[0] #/((?:(?!/).)*)$
-									path = f"{OUTPUT_PATH}/fotos_yupoo/{album}/{img_title}.jpeg"
-									if os.path.exists(path) == True:
-										continue
-									self.tasks.append(asyncio.ensure_future(self.async_req(img_link, self.get_imgs)))
-							if len(self.tasks) > 0:
+						for album in self.albums[page]:
+							for img in self.albums[page][album]['imgs']:
+								img_link = img
+								if img_link == "video": continue
+								img_title = re.findall(r'/((?:(?!/).)*)$', img_link)[0].split('.')[0] #/((?:(?!/).)*)$
+								path = f"{OUTPUT_PATH}/fotos_yupoo/{album}/{img_title}.jpeg"
+								if os.path.exists(path) == True:
+									continue
+								self.tasks.append(asyncio.ensure_future(self.async_req(img_link, self.get_imgs)))
+						if len(self.tasks) > 0:
+							self.console.print('\n[#6149ab]Baixando as imagens dos álbuns[#6149ab]')
+							with alive_bar(len(self.tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
 								logger.info(f"[all_albums] downloading imgs in albums: {len(self.tasks)}")
 								await self._(self.tasks, self.get_imgs)
 				else:
@@ -344,25 +342,41 @@ else:
 
 			try:
 				async with aiofiles.open(f'{OUTPUT_PATH}/fotos_yupoo/{album}/{img_title}.jpeg', mode='wb') as f:
-					image = Image(r[0])
-					if image.has_exif:
+					img = Image.open(BytesIO(r[0]))
+					if "exif" in img.info:
 						try:
-							old_v = image["orientation"].value
+							exif_dict = piexif.load(img.info["exif"])
+						except Exception as e:
+							logger.info(f'{e}: {r[2]}')
+							self.bar()
+							return
+						del exif_dict['thumbnail']
+						del exif_dict['1st']
+						try:
+							del exif_dict['Exif'][piexif.ExifIFD.SceneType]
 						except:
-							await f.write(r[0])
-						if old_v != 1:
-							image["orientation"] = 1
-							image = image.get_file()
-							img__ = PImage.open(io.BytesIO(image))
-							if old_v == 6: img__ = img__.rotate(-90)
-							elif old_v == 8: img__ = img__.rotate(90)
-							elif old_v == 3: img__ = img__.rotate(180)
-							elif old_v == 2: img__ = img__.transpose(PImage.FLIP_LEFT_RIGHT)
-							elif old_v == 5: img__ = img__.rotate(-90).transpose(PImage.FLIP_LEFT_RIGHT)
-							elif old_v == 7: img__ = img__.rotate(90).transpose(PImage.FLIP_LEFT_RIGHT)
-							elif old_v == 4: img__ = img__.rotate(180).transpose(PImage.FLIP_LEFT_RIGHT)
-							img_byte_arr = io.BytesIO()
-							img__.save(img_byte_arr, format="JPEG")
+							pass
+						if piexif.ImageIFD.Orientation in exif_dict["0th"]:
+							orientation = exif_dict["0th"].pop(piexif.ImageIFD.Orientation)
+							exif_bytes = piexif.dump(exif_dict)
+
+							if orientation == 2:
+								img = img.transpose(Image.FLIP_LEFT_RIGHT)
+							elif orientation == 3:
+								img = img.rotate(180)
+							elif orientation == 4:
+								img = img.rotate(180).transpose(Image.FLIP_LEFT_RIGHT)
+							elif orientation == 5:
+								img = img.rotate(-90, expand=True).transpose(Image.FLIP_LEFT_RIGHT)
+							elif orientation == 6:
+								img = img.rotate(-90, expand=True)
+							elif orientation == 7:
+								img = img.rotate(90, expand=True).transpose(Image.FLIP_LEFT_RIGHT)
+							elif orientation == 8:
+								img = img.rotate(90, expand=True)
+
+							img_byte_arr = BytesIO()
+							img.save(img_byte_arr, exif=exif_bytes, format='JPEG')
 							img_byte_arr = img_byte_arr.getvalue()
 							await f.write(img_byte_arr)
 						else:
@@ -371,6 +385,7 @@ else:
 						await f.write(r[0])
 				self.bar()
 			except Exception as e:
+				logger.info(f'error write file URL: {r[2]}')
 				self.error = f'error write file: {e}'
 				raise self.FatalException
 
