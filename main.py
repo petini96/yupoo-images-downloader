@@ -127,11 +127,11 @@ else:
 								if os.path.exists(path) == True:
 									continue
 								self.tasks.append(asyncio.ensure_future(self.async_req(img_link, self.get_imgs)))
-						if len(self.tasks) > 0:
-							self.console.print('\n[#6149ab]Baixando as imagens dos álbuns[#6149ab]')
-							with alive_bar(len(self.tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
-								logger.info(f"[all_albums] downloading imgs in albums: {len(self.tasks)}")
-								await self._(self.tasks, self.get_imgs)
+					if len(self.tasks) > 0:
+						self.console.print('\n[#6149ab]Baixando as imagens dos álbuns[#6149ab]')
+						with alive_bar(len(self.tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
+							logger.info(f"[all_albums] downloading imgs in albums: {len(self.tasks)}")
+							await self._(self.tasks, self.get_imgs)
 				else:
 						for album in self.albums:
 							for img in self.albums[album]['imgs']:
