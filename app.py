@@ -188,11 +188,12 @@ class App():
 				else:
 					return url
 			elif self.opt == "3" or self.opt == "4":
-				self.urls.append(url)
+				if url not in self.urls:
+					self.urls.append(url)
 
 	def default(self):
 		self.console.print(self.st1np)
-		self.console.print("[#baa6ff]Aplicação [#6149ab b]v1.3.1[/], desenvolvida por [#6149ab b]st1np[/]![/]\n")
+		self.console.print("[#baa6ff]Aplicação [#6149ab b]v1.3.2[/], desenvolvida por [#6149ab b]st1np[/]![/]\n")
 		self.console.print("[#ffffff]Github:[/] [default]https://github.com/st1np/[/]")
 		self.console.print("[#ffffff]Telegram:[/] [default]https://t.me/appyupoo[/]")
 		self.console.print("[#ffffff]Sugestões, reportar bugs:[/] [default](12) 9 8137-2735[/]\n")

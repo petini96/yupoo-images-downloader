@@ -27,6 +27,7 @@ else:
 	from time import sleep, perf_counter
 	from alive_progress import alive_bar
 	from rich.console import Console
+	import traceback
 	import piexif
 	from PIL import ImageFile
 	ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -287,6 +288,8 @@ else:
 			soup = BeautifulSoup(page.encode("ascii", "ignore").decode("utf-8"), "lxml")
 			for album in soup.find_all("a", {"class": "album__main"}):
 				title = await self.parse_title(album.get('title'))
+				if title == '':
+					title = await self.parse_title('blank')
 				self.albums[num_page][title] = {"album_link": self.urls+album.get('href')}
 
 		async def get_album(self, r):
@@ -321,6 +324,8 @@ else:
 			else:
 				title = soup.select_one("span.showalbumheader__gallerytitle").text
 				title = await self.parse_title(title)
+				if title == '':
+					title = await self.parse_title('blank')
 				self.albums[title] = {}
 				self.albums[title]["album_link"] = r[2]
 				self.albums[title]["imgs"] = album_imgs_links
@@ -343,49 +348,69 @@ else:
 			try:
 				async with aiofiles.open(f'{OUTPUT_PATH}/fotos_yupoo/{album}/{img_title}.jpeg', mode='wb') as f:
 					img = Image.open(BytesIO(r[0]))
+					img = img.convert('RGB')
 					if "exif" in img.info:
 						try:
 							exif_dict = piexif.load(img.info["exif"])
+							del exif_dict['thumbnail']
+							del exif_dict['1st']
+							try:
+								del exif_dict['Exif'][piexif.ExifIFD.SceneType]
+							except:
+								pass
+							if piexif.ImageIFD.Orientation in exif_dict["0th"]:
+								orientation = exif_dict["0th"].pop(piexif.ImageIFD.Orientation)
+								exif_bytes = piexif.dump(exif_dict)
+
+								if orientation == 2:
+									img = img.transpose(Image.FLIP_LEFT_RIGHT)
+								elif orientation == 3:
+									img = img.rotate(180)
+								elif orientation == 4:
+									img = img.rotate(180).transpose(Image.FLIP_LEFT_RIGHT)
+								elif orientation == 5:
+									img = img.rotate(-90, expand=True).transpose(Image.FLIP_LEFT_RIGHT)
+								elif orientation == 6:
+									img = img.rotate(-90, expand=True)
+								elif orientation == 7:
+									img = img.rotate(90, expand=True).transpose(Image.FLIP_LEFT_RIGHT)
+								elif orientation == 8:
+									img = img.rotate(90, expand=True)
+
+								img_byte_arr = BytesIO()
+								img.save(img_byte_arr, exif=exif_bytes, format='JPEG')
+								img_byte_arr = img_byte_arr.getvalue()
+								await f.write(img_byte_arr)
 						except Exception as e:
-							logger.info(f'{e}: {r[2]}')
-							self.bar()
-							return
-						del exif_dict['thumbnail']
-						del exif_dict['1st']
-						try:
-							del exif_dict['Exif'][piexif.ExifIFD.SceneType]
-						except:
-							pass
-						if piexif.ImageIFD.Orientation in exif_dict["0th"]:
-							orientation = exif_dict["0th"].pop(piexif.ImageIFD.Orientation)
-							exif_bytes = piexif.dump(exif_dict)
-
-							if orientation == 2:
-								img = img.transpose(Image.FLIP_LEFT_RIGHT)
-							elif orientation == 3:
-								img = img.rotate(180)
-							elif orientation == 4:
-								img = img.rotate(180).transpose(Image.FLIP_LEFT_RIGHT)
-							elif orientation == 5:
-								img = img.rotate(-90, expand=True).transpose(Image.FLIP_LEFT_RIGHT)
-							elif orientation == 6:
-								img = img.rotate(-90, expand=True)
-							elif orientation == 7:
-								img = img.rotate(90, expand=True).transpose(Image.FLIP_LEFT_RIGHT)
-							elif orientation == 8:
-								img = img.rotate(90, expand=True)
-
-							img_byte_arr = BytesIO()
-							img.save(img_byte_arr, exif=exif_bytes, format='JPEG')
-							img_byte_arr = img_byte_arr.getvalue()
-							await f.write(img_byte_arr)
+							keys = await self.find_key(self.albums, r[2])
+							if self.all_albums:
+								key = self.albums[keys[0]][keys[1]]['album_link']
+							else:
+								key = self.albums[keys[0]]['album_link']
+							if 'unpack requires a buffer of' in repr(e):
+								logger.info(f'{e}:  [{key}, {r[2]}]')
+								await f.write(r[0])
+							else:
+								logger.info(f'{traceback.format_exc()}')
+								logger.info(f'{e}:  [{key}, {r[2]}]')
+								try:
+									await f.write(r[0])
+								except:
+									self.error = e
+									raise self.FatalException()
 						else:
 							await f.write(r[0])
 					else:
 						await f.write(r[0])
 				self.bar()
 			except Exception as e:
-				logger.info(f'error write file URL: {r[2]}')
+				keys = await self.find_key(self.albums, r[2])
+				if self.all_albums:
+					key = self.albums[keys[0]][keys[1]]['album_link']
+				else:
+					key = self.albums[keys[0]]['album_link']
+				logger.info(traceback.format_exc())
+				logger.info(f'error write file URL: [{key}, {r[2]}]')
 				self.error = f'error write file: {e}'
 				raise self.FatalException
 
@@ -406,10 +431,15 @@ else:
 			while True:
 				it+=1
 				if it == 1:
-					if await self.find_key(self.albums, title) == None:
+					if await self.find_key(self.albums, title) == None and self.all_albums:
+						break
+					elif title not in self.albums:
 						break
 				else:
-					if await self.find_key(self.albums, f"{title} - {str(it)}") == None:
+					if await self.find_key(self.albums, f"{title} - {str(it)}") == None and self.all_albums:
+						title = f"{title} - {str(it)}"
+						break
+					elif f"{title} - {str(it)}" not in self.albums:
 						title = f"{title} - {str(it)}"
 						break
 					else:
