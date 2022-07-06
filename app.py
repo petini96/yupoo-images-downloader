@@ -1,3 +1,4 @@
+from main import YupooDownloader
 import os
 import sys
 os.environ['PYTHONASYNCIODEBUG'] = '1'
@@ -45,7 +46,7 @@ class App():
 			self.console.print(f"\n[b #c7383f]{e}[/]")
 			import traceback
 			with open("info.log", "a") as f:
-				f.write(traceback.format_exc()+"\n-\n")
+				f.write(f'albums: {self.yupoo_downloader.albums}\n\n{traceback.format_exc()}\n-\n') #albums: {self.yupoo_downloader.albums}
 			return
 		self.console.print(f"\n[b #0ba162]Concluído! Imagens salvas no diretório {self.path_to_save}, na pasta chamada fotos_yupoo.[/]")
 		self.console.print(f"Tempo gasto: [b #0ba162]{round(perf_counter()-self.start_time, 2)}[/]")
@@ -97,13 +98,11 @@ class App():
 						choose_path()
 				else:
 					choose_path()
-					
 			else:
 				choose_path()
 					
 			clear()
 			self.default()
-			from main import YupooDownloader
 			if self.opt == "1" or self.opt == "2":
 				if self.opt == "1":
 					selected_print_ = lambda: selected_print("1", "Baixando todas as fotos do catálogo!")
@@ -118,7 +117,8 @@ class App():
 					self.default()
 					selected_print_()
 					self.start_time = perf_counter()
-					asyncio.get_event_loop().run_until_complete(YupooDownloader(all_albums=True, urls=url, cover=False).main())
+					self.yupoo_downloader = YupooDownloader(all_albums=True, urls=url, cover=False)
+					asyncio.run(self.yupoo_downloader.main())
 				else:
 					selected_print_ = lambda: selected_print("2", "Baixando todas as fotos principais do catálogo!")
 					selected_print_()
@@ -132,7 +132,8 @@ class App():
 					self.default()
 					selected_print_()
 					self.start_time = perf_counter()
-					asyncio.get_event_loop().run_until_complete(YupooDownloader(all_albums=True, urls=url, cover=True).main())
+					self.yupoo_downloader = YupooDownloader(all_albums=True, urls=url, cover=True)
+					asyncio.run(self.yupoo_downloader.main())
 			elif self.opt == "3" or self.opt == "4":
 				if self.opt == "3":
 					selected_print_ = lambda: selected_print("3", "Baixando todas as fotos dos álbuns selecionados!")
@@ -145,7 +146,7 @@ class App():
 				self.urls = []
 				while True:
 					url = prompt.Prompt.ask("[#6149ab b]link[/]")
-					url = url.lower()
+					url = url
 					if url == "ok":
 						if len(self.urls) != 0:
 							break
@@ -163,13 +164,15 @@ class App():
 					self.default()
 					selected_print_()
 					self.start_time = perf_counter()
-					asyncio.get_event_loop().run_until_complete(YupooDownloader(all_albums=False, urls=self.urls, cover=False).main())
+					self.yupoo_downloader = YupooDownloader(all_albums=False, urls=self.urls, cover=False)
+					asyncio.run(self.yupoo_downloader.main())
 				else:
 					clear()
 					self.default()
 					selected_print_()
 					self.start_time = perf_counter()
-					asyncio.get_event_loop().run_until_complete(YupooDownloader(all_albums=False, urls=self.urls, cover=True).main())
+					self.yupoo_downloader = YupooDownloader(all_albums=False, urls=self.urls, cover=True)
+					asyncio.run(self.yupoo_downloader.main())
 		except Exception as e:
 			raise Exception(e)
 
@@ -178,12 +181,12 @@ class App():
 			self.console.print(f'[b #c7383f]ultimo link não considerado, link inválido!\nlembre-se de inserir apenas catálogos do site Yupoo![/]\n')
 		elif "https://" != url[0:8]:
 			self.console.print(f'[b #c7383f]ultimo link não considerado, link inválido!\nlembre-se de colocar "https://"[/]\n')
-		elif "categories" in url:
-			self.console.print(f'[b #c7383f]ultimo link não considerado, link inválido!\nainda não é possível baixar uma categoria especifica!\n')
 
 		else:
 			if self.opt == "1" or self.opt == "2":
-				if ".com" not in url[-5:]:
+				if "categories" in url or "collections" in url:
+					self.console.print(f'[b #c7383f]ultimo link não considerado, link inválido!\nuse a 3 ou 4 opção para baixar categorias[/]\n')
+				elif ".com" not in url[-5:]:
 					self.console.print(f'[b #c7383f]ultimo link não considerado, link inválido!\nnão pode haver nada após ".com", exemplo de link válido: "https://_____.x.yupoo.com/"[/]\n')
 				else:
 					return url
@@ -193,7 +196,7 @@ class App():
 
 	def default(self):
 		self.console.print(self.st1np)
-		self.console.print("[#baa6ff]Aplicação [#6149ab b]v1.3.2[/], desenvolvida por [#6149ab b]st1np[/]![/]\n")
+		self.console.print("[#baa6ff]Aplicação [#6149ab b]v1.4.0[/], desenvolvida por [#6149ab b]st1np[/]![/]\n")
 		self.console.print("[#ffffff]Github:[/] [default]https://github.com/st1np/[/]")
 		self.console.print("[#ffffff]Telegram:[/] [default]https://t.me/appyupoo[/]")
 		self.console.print("[#ffffff]Sugestões, reportar bugs:[/] [default](12) 9 8137-2735[/]\n")

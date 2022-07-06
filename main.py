@@ -14,8 +14,10 @@ else:
 	fh.setFormatter(formatter)
 	logger.addHandler(fh)
 
-	logger.info("start")
+	logger.info("start v1.4.0")
 
+	import winshell
+	from win32com.client import Dispatch
 	import asyncio
 	import re
 	import aiohttp
@@ -54,8 +56,7 @@ else:
 			logger.info(str(self.urls))
 			self.cover = cover
 			self.albums = {}
-			if self.all_albums:
-				self.pages = self.get_pages()
+			self.normpath = lambda path: os.path.normpath(path)
 
 			self.headers = {
 			'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.54 Safari/537.36', 'referer': "https://yupoo.com/"}
@@ -78,6 +79,7 @@ else:
 			session = aiohttp.ClientSession()
 			async with session as self.session:
 				if self.all_albums:
+					self.pages = await self.get_pages()
 					#getting albums from pages resp
 					self.tasks = []
 					for page in self.pages:
@@ -91,9 +93,10 @@ else:
 
 					#getting images from albums resp
 					self.tasks = []
-					for page in self.albums:
-						for album in self.albums[page]:
-							self.tasks.append(asyncio.ensure_future(self.async_req(self.albums[page][album]['album_link'], self.get_album)))
+					for catalog in self.albums:
+						for page in self.albums[catalog]:
+							for album in self.albums[catalog][page]:
+								self.tasks.append(asyncio.ensure_future(self.async_req(self.albums[catalog][page][album]['album_link'], self.get_album)))
 					logger.info(f"[all_albums] getting images from albums resp: {len(self.tasks)}")
 					self.console.print("\n[#6149ab]Pegando as imagens dos álbuns[/]")
 					with alive_bar(len(self.tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
@@ -104,47 +107,85 @@ else:
 
 				else:
 					#getting images from albums resp
+					categories = []
 					self.tasks = []
 					for url in self.urls:
-						self.tasks.append(asyncio.ensure_future(self.async_req(url, self.get_album)))
+						if 'categories' in url or 'collections' in url:
+							categories.append(url)
+					if len(categories) > 0:
+						self.tasks_cat = []
+						for cat in categories:
+							self.tasks_cat.append(asyncio.ensure_future(self.get_pages(cat)))
+						resp = await self._(self.tasks_cat)
+						self.tasks_cat = []
+						for category in resp:
+							name_catalog = re.findall(r'(?<=https:\/\/)(.*?)(?=\.com)', category[0][0])[0]
+							name_catalog = re.findall(r'(?<=^)(.*?)(?=\.x)', name_catalog)[0]
+							if name_catalog not in self.albums:
+								self.albums[name_catalog] = {}
+							self.category_title = category[1]
+							if 'categories' in category[0][0]:
+								self.category_id = re.findall(r'(?<=categories\/)(.*?)(?=\?)', category[0][0])[0]
+							elif 'collections' in category[0][0]:
+								self.category_id = re.findall(r'(?<=collections\/)(.*?)(?=\?)', category[0][0])[0]
+							if self.category_title == "":
+								self.category_title = f'blank - {self.category_id}'
+							else:
+								self.category_title = await self.parse_title(self.category_title, name_catalog, True)
+							for page in category[0]:
+								self.tasks_cat.append(asyncio.ensure_future(self.async_req(page, self.get_albums, [self.category_title, self.category_id])))
+						self.console.print("\n[#6149ab]Pegando álbuns das categorias[/]")
+						with alive_bar(len(self.tasks_cat), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
+							resp = await self._(self.tasks_cat)
+						for catalog in self.albums:
+							for album in self.albums[catalog]:
+								self.tasks.append(asyncio.ensure_future(self.async_req(self.albums[catalog][album]['album_link'], self.get_album)))
+
+					for url in self.urls:
+						if 'categories' not in url and 'collections' not in url:
+							self.tasks.append(asyncio.ensure_future(self.async_req(url, self.get_album)))
 					logger.info(f"[all_albums == False] getting images from albums resp: {len(self.tasks)}")
 					self.console.print("\n[#6149ab]Pegando as imagens dos álbuns[/]")
 					with alive_bar(len(self.tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
 						self.start_time = perf_counter()
 						await self._(self.tasks, self.get_album)
 					logger.info(self.now())
-
+				
 				#downloading imgs in albums
 				self.tasks=[]
 				self.start_time = perf_counter()
 				if self.all_albums:
-					for page in self.albums:
-						for album in self.albums[page]:
-							for img in self.albums[page][album]['imgs']:
-								img_link = img
-								if img_link == "video": continue
-								img_title = re.findall(r'/((?:(?!/).)*)$', img_link)[0].split('.')[0] #/((?:(?!/).)*)$
-								path = f"{OUTPUT_PATH}/fotos_yupoo/{album}/{img_title}.jpeg"
-								if os.path.exists(path) == True:
-									continue
-								self.tasks.append(asyncio.ensure_future(self.async_req(img_link, self.get_imgs)))
+					for catalog in self.albums:
+						for page in self.albums[catalog]:
+							for album in self.albums[catalog][page]:
+								name_catalog = catalog
+								for img in self.albums[catalog][page][album]['imgs']:
+									img_link = img
+									if img_link == "video": continue
+									img_title = re.findall(r'/((?:(?!/).)*)$', img_link)[0].split('.')[0] #/((?:(?!/).)*)$
+									path = f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/albuns/{album}/{img_title}.jpeg"
+									if os.path.exists(path) == True:
+										continue
+									self.tasks.append(asyncio.ensure_future(self.async_req(img_link, self.get_imgs)))
 					if len(self.tasks) > 0:
 						self.console.print('\n[#6149ab]Baixando as imagens dos álbuns[#6149ab]')
 						with alive_bar(len(self.tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
 							logger.info(f"[all_albums] downloading imgs in albums: {len(self.tasks)}")
 							await self._(self.tasks, self.get_imgs)
 				else:
-						for album in self.albums:
-							for img in self.albums[album]['imgs']:
-								if img == "video":
-									continue
-								img_link = img
-								if img_link == "video": continue
-								img_title = re.findall(r'/((?:(?!/).)*)$', img_link)[0].split('.')[0] #/((?:(?!/).)*)$
-								path = f"{OUTPUT_PATH}/fotos_yupoo/{album}/{img_title}.jpeg"
-								if os.path.exists(path) == True:
-									continue
-								self.tasks.append(asyncio.ensure_future(self.async_req(img_link, self.get_imgs)))
+						for catalog in self.albums:
+							for album in self.albums[catalog]:
+								name_catalog = catalog
+								for img in self.albums[catalog][album]['imgs']:
+									if img == "video":
+										continue
+									img_link = img
+									if img_link == "video": continue
+									img_title = re.findall(r'/((?:(?!/).)*)$', img_link)[0].split('.')[0] #/((?:(?!/).)*)$
+									path = f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/albuns/{album}/{img_title}.jpeg"
+									if os.path.exists(path) == True:
+										continue
+									self.tasks.append(asyncio.ensure_future(self.async_req(img_link, self.get_imgs)))
 						if len(self.tasks) > 0:
 							logger.info(f"[all_albums == False] downloading imgs in albums: {len(self.tasks)}")
 							self.console.print('\n[#6149ab]Baixando as imagens dos álbuns[#6149ab]')
@@ -154,7 +195,7 @@ else:
 				logger.info(self.now())
 				logger.info(f"finish: {round(perf_counter() - self.start_time_class, 2)}")
 
-		async def async_req(self, url, function = None):
+		async def async_req(self, url, function = None, category = None):
 			timeout_ = [self.timeout.connect, self.timeout.sock_read]
 
 			def auto_timeout(timeout, control, errors, e, add, type):
@@ -201,10 +242,13 @@ else:
 									if 'get_imgs' in repr(function):
 										await function([await resp.read(), resp.status, url])
 									else:
+										if category != None:
+											await function([await resp.text(), resp.status, url, category])
+										else:
+											await function([await resp.text(), resp.status, url])
 										self.bar()
-										await function([await resp.text(), resp.status, url])
 								else:
-									await asyncio.sleep(2)
+									await asyncio.sleep(0.5)
 									await req()
 						else:
 							await asyncio.sleep(0.3)
@@ -247,53 +291,89 @@ else:
 						await req()
 				await req()
 
-		def get_pages(self):
+		async def get_pages(self, url_ = None):
 			try:
-				url = f"{self.urls}/albums?tab=gallery&page=1"
-				while True:
-					logging.info('getting pages')
-					resp = requests.get(url)
-					if resp.status_code == 200:
-						logging.info('pages 200')
-						break
-					logger.info("getting pages again")
-
-				soup = BeautifulSoup(resp.text.encode("ascii", "ignore").decode("utf-8"), "lxml")
-				total_pages = soup.select_one("form.pagination__jumpwrap > span").get_text()
-				pages = []
-				for page in range(1, int(total_pages)+1):
-						pages.append(f"{url[:-1]}{page}")
-				if type(pages) == list:
-					if None in pages:
-						sleep(1)
-						self.get_pages()
-					else: 
-						return pages
-				elif pages == None:
-					sleep(1)
-					self.get_pages()
+				if self.all_albums:
+					url = f"{self.urls}/albums?tab=gallery&page=1"
 				else:
-					sleep(1)
-					self.get_pages()
+					url = f"{url_}?page=1"
+					if "?" in url_:
+						url = f"{url_}&page=1"
+				
+				timeout = aiohttp.ClientTimeout(total=15)
+				session = aiohttp.ClientSession()
+				async with session:
+					while True:
+						logging.info('getting pages')
+						try:
+							async with session.get(url, timeout=timeout, ssl=sslcontext) as resp:
+								if resp.status == 200:
+									logging.info('pages 200')
+									text = await resp.text()
+									soup = BeautifulSoup(text.encode("ascii", "ignore").decode("utf-8"), "lxml")
+									try:
+										total_pages = soup.select_one('form.pagination__jumpwrap input[name="page"]').get('max')
+									except:
+										total_pages = 1
+									pages = []
+									for page in range(1, int(total_pages)+1):
+											pages.append(f"{url[:-1]}{page}")
+									if type(pages) == list:
+										if None in pages:
+											await asyncio.sleep(1)
+											return await self.get_pages(url_)
+										else:
+											if url_ != None:
+												category_title = soup.select_one('.alert__title').text.replace("'", "").replace('"', '')
+												return [pages, category_title]
+											return [pages]
+									elif pages == None:
+										await asyncio.sleep(1)
+										return await self.get_pages(url_)
+									else:
+										await asyncio.sleep(1)
+										return await self.get_pages(url_)
+									break
+								logger.info("getting pages again")
+						except Exception as e:
+							logging.info(f"getting pages again 2: {e}")
+							pass
+			except aiohttp.ClientConnectionError:
+				if resp.status == 200:
+					pass
+				else:
+					await asyncio.sleep(1)
+					logger.info(f"pages exception: {e}")
+					return await self.get_pages(url_)
 			except Exception as e:
-				sleep(1)
-				self.get_pages()
+				await asyncio.sleep(1)
+				logger.info(f"pages exception: {e}")
+				return await self.get_pages(url_)
 
 		async def get_albums(self, page):
-			num_page = str(regex.findall(r"&page=(.+)", page[2])[0])
-			page = page[0]
-			
-
-			self.albums[num_page] = {}
-			soup = BeautifulSoup(page.encode("ascii", "ignore").decode("utf-8"), "lxml")
+			soup = BeautifulSoup(page[0].encode("ascii", "ignore").decode("utf-8"), "lxml")
+			name_catalog = re.findall(r'(?<=https:\/\/)(.*?)(?=\.com)', page[2])[0]
+			name_catalog = re.findall(r'(?<=^)(.*?)(?=\.x)', name_catalog)[0]
+			if self.all_albums:
+				num_page = str(regex.findall(r"&page=(.+)", page[2])[0])
+				self.albums[name_catalog] = {num_page: {}}
+				
+			base_url = re.findall(r'(?<=https:\/\/)(.*?)(?=\.com)', page[2])[0]
 			for album in soup.find_all("a", {"class": "album__main"}):
-				title = await self.parse_title(album.get('title'))
+				title = await self.parse_title(album.get('title'), name_catalog)
 				if title == '':
-					title = await self.parse_title('blank')
-				self.albums[num_page][title] = {"album_link": self.urls+album.get('href')}
+					title = await self.parse_title('blank', name_catalog)
+				if self.all_albums:
+					self.albums[name_catalog][num_page][title] = {"album_link": self.urls+album.get('href')}
+				else:
+					self.albums[name_catalog][title] = {"album_link": f"https://{base_url}.com{album.get('href')}", "category_title": page[3][0], "category_id": page[3][1]}
+
 
 		async def get_album(self, r):
-			keys = await self.find_key(self.albums, r[2])
+			name_catalog = re.findall(r'(?<=https:\/\/)(.*?)(?=\.com)', r[2])[0]
+			name_catalog = re.findall(r'(?<=^)(.*?)(?=\.x)', name_catalog)[0]
+			keys = (await self.find_key(self.albums, r[2]))
+			keys = keys[0] if keys != None else None
 			soup = BeautifulSoup(r[0].encode("ascii", "ignore").decode("utf-8"), "lxml")
 			album_imgs_links = []
 			if self.cover:
@@ -320,33 +400,60 @@ else:
 				elif self.cover == False:
 					album_imgs_links.append(f"https:{src}")
 			if self.all_albums:
-				self.albums[keys[0]][keys[1]]['imgs'] = album_imgs_links
+				self.albums[keys[0]][keys[1]][keys[2]]['imgs'] = album_imgs_links
 			else:
-				title = soup.select_one("span.showalbumheader__gallerytitle").text
-				title = await self.parse_title(title)
-				if title == '':
-					title = await self.parse_title('blank')
-				self.albums[title] = {}
-				self.albums[title]["album_link"] = r[2]
-				self.albums[title]["imgs"] = album_imgs_links
+				if keys == None:
+					if name_catalog not in self.albums:
+						self.albums[name_catalog] = {}
+					title = soup.select_one("span.showalbumheader__gallerytitle").text
+					title = await self.parse_title(title, name_catalog)
+					if title == '':
+						title = await self.parse_title('blank', name_catalog)
+				else:
+					title = keys[1]
+				if title not in self.albums[name_catalog]:
+					self.albums[name_catalog][title] = {}
+					self.albums[name_catalog][title]["album_link"] = r[2]
+				self.albums[name_catalog][title]["imgs"] = album_imgs_links
 
 		async def get_imgs(self, r):
-			keys = await self.find_key(self.albums, r[2])
+			keys = (await self.find_key(self.albums, r[2]))[0]
 			if self.all_albums:
-				album = keys[1]
+				album_path = self.albums[keys[0]][keys[1]][keys[2]]
+				album = keys[2]
 			else:
-				album = keys[0]
+				album_path = self.albums[keys[0]][keys[1]]
+				album = keys[1]
 			try:
 				img_title = re.findall(r'/((?:(?!/).)*)$', r[2])[0].split('.')[0] #/((?:(?!/).)*)$
 			except:
 				return
 
-			path = f"{OUTPUT_PATH}/fotos_yupoo/{album}"
+			name_catalog = keys[0]
+			path = f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/albuns/{album}"
 			if os.path.exists(path) == False:
 				os.makedirs(path)
+			
+			if "category_title" in album_path:
+				save_path = self.normpath(f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/categorias/{album_path['category_title']}/")
+				target = self.normpath(path)  # The shortcut target file or folder
+				work_dir = self.normpath(f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/albuns/")  # The parent folder of your file
+			else:
+				save_path = self.normpath(f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/categorias/sem categoria/")
+				target = self.normpath(path)  # The shortcut target file or folder
+				work_dir = self.normpath(f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/albuns/")  # The parent folder of your file
+
+			shell = Dispatch('WScript.Shell')
+
+			if os.path.exists(save_path) == False:
+				os.makedirs(save_path)
+			shortcut = shell.CreateShortCut(f"{save_path}\{album}.lnk")
+			shortcut.Targetpath = target
+			shortcut.WorkingDirectory = work_dir
+			shortcut.save()
 
 			try:
-				async with aiofiles.open(f'{OUTPUT_PATH}/fotos_yupoo/{album}/{img_title}.jpeg', mode='wb') as f:
+				async with aiofiles.open(f'{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/albuns/{album}/{img_title}.jpeg', mode='wb') as f:
 					img = Image.open(BytesIO(r[0]))
 					img = img.convert('RGB')
 					if "exif" in img.info:
@@ -382,11 +489,11 @@ else:
 								img_byte_arr = img_byte_arr.getvalue()
 								await f.write(img_byte_arr)
 						except Exception as e:
-							keys = await self.find_key(self.albums, r[2])
+							keys = (await self.find_key(self.albums, r[2]))[0]
 							if self.all_albums:
-								key = self.albums[keys[0]][keys[1]]['album_link']
+								key = self.albums[keys[0]][keys[1]][keys[2]]['album_link']
 							else:
-								key = self.albums[keys[0]]['album_link']
+								key = self.albums[keys[0]][keys[1]]['album_link']
 							if 'unpack requires a buffer of' in repr(e):
 								logger.info(f'{e}:  [{key}, {r[2]}]')
 								await f.write(r[0])
@@ -404,56 +511,89 @@ else:
 						await f.write(r[0])
 				self.bar()
 			except Exception as e:
-				keys = await self.find_key(self.albums, r[2])
+				keys = (await self.find_key(self.albums, r[2]))[0]
 				if self.all_albums:
-					key = self.albums[keys[0]][keys[1]]['album_link']
+					key = self.albums[keys[0]][keys[1]][keys[2]]['album_link']
 				else:
-					key = self.albums[keys[0]]['album_link']
+					key = self.albums[keys[0]][keys[1]]['album_link']
 				logger.info(traceback.format_exc())
 				logger.info(f'error write file URL: [{key}, {r[2]}]')
 				self.error = f'error write file: {e}'
 				raise self.FatalException
 
-		async def _(self, tasks, function):
+		async def _(self, tasks, function = None):
 			try:
 				self.connections_alive = []
-				resp = await asyncio.gather(*self.tasks)
+				resp = await asyncio.gather(*tasks)
+				return resp
 			except self.FatalException:
 				for task in self.tasks:
 					task.cancel()
 				raise Exception(self.error)
 
 
-		async def parse_title(self, title):
+		async def parse_title(self, title, catalog, category = False):
 			title = title.replace('.', '_').replace('/', '_').replace(':', '').replace('"', '').replace("'", '').replace('*','')
 			title = title.strip()
 			it = 0
 			while True:
 				it+=1
 				if it == 1:
-					if await self.find_key(self.albums, title) == None and self.all_albums:
+					if await self.find_key(self.albums[catalog], title) == None and self.all_albums:
 						break
-					elif title not in self.albums:
+					elif category:
+						keys_list = await self.find_key(self.albums[catalog], title)
+						have_title = False
+						if keys_list != None:
+							for keys in keys_list:
+								if keys[-1] == "category_title":
+									have_title = True
+						elif have_title == False or keys_list == None:
+							break
+					elif title not in self.albums[catalog]:
 						break
 				else:
-					if await self.find_key(self.albums, f"{title} - {str(it)}") == None and self.all_albums:
+					if await self.find_key(self.albums[catalog], f"{title} - {str(it)}") == None and self.all_albums:
 						title = f"{title} - {str(it)}"
 						break
-					elif f"{title} - {str(it)}" not in self.albums:
+					elif category:
+						keys_list = await self.find_key(self.albums[catalog], f"{title} - {str(it)}")
+						have_title = False
+						if keys_list != None:
+							for keys in keys_list:
+								if keys[-1] == "category_title":
+									have_title = True
+						elif have_title == False or keys_list == None:
+							title = f"{title} - {str(it)}"
+							break
+					elif f"{title} - {str(it)}" not in self.albums[catalog]:
 						title = f"{title} - {str(it)}"
 						break
 					else:
 						continue
 			return title
 
-		async def find_key(self, d, value):
-			for k,v in d.items():
+		async def find_key(self, d: dict, value):
+			def _k(d: dict, value):
+				for k,v in d.items():
 					if isinstance(v, dict):
-							p = await self.find_key(v, value)
+							p = _k(v, value)
 							if p:
 								return [k] + p
 					elif isinstance(v, list) == True and k == "imgs":
 						if value in v:
+							v.remove(value)
 							return [k]
 					elif v == value:
+							del d[k]
 							return [k]
+			keys = []
+			while True:
+				k = _k(d, value)
+				if k != None:
+					keys.append(k)
+				else:
+					break
+			if len(keys) == 0:
+				return None
+			return keys
