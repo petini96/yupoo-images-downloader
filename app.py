@@ -12,7 +12,7 @@ from rich.console import Console
 from rich.text import Text
 from rich.panel import Panel
 import rich.prompt as prompt
-
+import re
 from tkinter import filedialog
 import tkinter as tk
 import json
@@ -110,7 +110,7 @@ class App():
 					self.console.print("\nInsira o link do catálogo.")
 					while True:
 						url = prompt.Prompt.ask("[#6149ab b]link[/]")
-						url = self.verify_url(url)
+						url = self.verify_url(self.parse_url(url))
 						if url != None:
 							break
 					clear()
@@ -125,7 +125,7 @@ class App():
 					self.console.print("\nInsira o link do catálogo.")
 					while True:
 						url = prompt.Prompt.ask("[#6149ab b]link[/]")
-						url = self.verify_url(url)
+						url = self.verify_url(self.parse_url(url))
 						if url != None:
 							break
 					clear()
@@ -158,7 +158,7 @@ class App():
 						else:
 							self.console.print(f'[b #c7383f]insira pelo menos um link antes de remover![/]\n')
 					else:
-						self.verify_url(url)
+						self.verify_url(self.parse_url(url))
 				if self.opt == "3":
 					clear()
 					self.default()
@@ -176,12 +176,31 @@ class App():
 		except Exception as e:
 			raise Exception(e)
 
+	def parse_url(self, url):
+		rx_url = lambda text: re.findall(r'(?<=https:\/\/)(.*?)(?=\.x)', text)
+		if len(rx_url(url)) == 0:
+			rx_catalog = re.findall(r'(?<=photos\/)(.*?)(?=\/)', url)
+			if len(rx_catalog) != 0:
+				catalog = rx_catalog[0]
+				url_split = [part for part in url.split('/') if part != '']
+
+				if url_split[-1] == 'albums' and url_split[-2] == catalog: # catalog url
+					url = f'https://{catalog}.x.yupoo.com/'
+				elif url_split[-2] == 'albums' and url_split[-3] == catalog: # album url
+					url = f'https://{catalog}.x.yupoo.com/albums/{url_split[-1]}'
+				elif url_split[-2] == 'categories' or url_split[-2] == 'collections' and url_split[-3] == catalog: # catalog id url
+					url = f'https://{catalog}.x.yupoo.com/categories/{url_split[-1]}'
+				else:
+					return None
+		return url
+
 	def verify_url(self, url):
-		if "yupoo" not in url:
+		if url == None:
+			self.console.print(f'[b #c7383f]ultimo link não considerado, link inválido!\n')
+		elif "yupoo" not in url:
 			self.console.print(f'[b #c7383f]ultimo link não considerado, link inválido!\nlembre-se de inserir apenas catálogos do site Yupoo![/]\n')
 		elif "https://" != url[0:8]:
 			self.console.print(f'[b #c7383f]ultimo link não considerado, link inválido!\nlembre-se de colocar "https://"[/]\n')
-
 		else:
 			if self.opt == "1" or self.opt == "2":
 				if "categories" in url or "collections" in url:
@@ -200,7 +219,7 @@ class App():
 		self.console.print("[#ffffff]Github:[/] [default]https://github.com/st1np/[/]")
 		self.console.print("[#ffffff]Telegram:[/] [default]https://t.me/appyupoo[/]")
 		self.console.print("[#ffffff]Sugestões, reportar bugs:[/] [default](12) 9 8137-2735[/]\n")
-		self.console.print(Panel.fit("[#ffffff]Considere ajudar o [bold #4912ff]PROJETO[/][/]!\n[#ffffff]Chave [bold u #0ba162]PIX[/]: [bold #00ff73](12) 9 8137-2735[/]", title="[blink #4912ff]***[/]", subtitle="[blink #4912ff]***[/]"))
+		self.console.print(Panel.fit("[#ffffff]Considere apoiar o [bold #4912ff]PROJETO[/][/]!\n[#ffffff]Chave [bold u #0ba162]PIX[/]: [bold #00ff73](12) 9 8137-2735[/]", title="[blink #4912ff]***[/]", subtitle="[blink #4912ff]***[/]"))
 
 	def edit_rich(self):
 		def choices_style(style='prompt.choices'):

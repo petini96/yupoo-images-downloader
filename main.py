@@ -22,11 +22,10 @@ else:
 	import re
 	import aiohttp
 	import aiofiles
-	import requests
 	from bs4 import BeautifulSoup
 	import lxml
 	import regex
-	from time import sleep, perf_counter
+	from time import perf_counter
 	from alive_progress import alive_bar
 	from rich.console import Console
 	import traceback
@@ -95,9 +94,8 @@ else:
 					#getting images from albums resp
 					self.tasks = []
 					for catalog in self.albums:
-						for page in self.albums[catalog]:
-							for album in self.albums[catalog][page]:
-								self.tasks.append(asyncio.ensure_future(self.async_req(self.albums[catalog][page][album]['album_link'], self.get_album)))
+							for album in self.albums[catalog]:
+								self.tasks.append(asyncio.ensure_future(self.async_req(self.albums[catalog][album]['album_link'], self.get_album)))
 					logger.info(f"[all_albums] getting images from albums resp: {len(self.tasks)}")
 					self.console.print("\n[#6149ab]Pegando as imagens dos álbuns[/]")
 					with alive_bar(len(self.tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
@@ -197,10 +195,9 @@ else:
 				self.start_time = perf_counter()
 				if self.all_albums:
 					for catalog in self.albums:
-						for page in self.albums[catalog]:
-							for album in self.albums[catalog][page]:
+							for album in self.albums[catalog]:
 								name_catalog = catalog
-								for img in self.albums[catalog][page][album]['imgs']:
+								for img in self.albums[catalog][album]['imgs']:
 									img_link = img
 									if img_link == "video": continue
 									img_title = re.findall(r'/((?:(?!/).)*)$', img_link)[0].split('.')[0] #/((?:(?!/).)*)$
@@ -211,7 +208,7 @@ else:
 											os.unlink(without_category_path)
 											if len(os.listdir(f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/categorias/sem categoria/")) == 0:
 												os.rmdir(f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/categorias/sem categoria/")
-											album_path = self.albums[catalog][page][album]
+											album_path = self.albums[catalog][album]
 											if 'category_title' in album_path:
 												save_path = self.normpath(f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/categorias/{album_path['category_title']}/")
 												target = self.normpath(f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/albuns/{album}")  # The shortcut target file or folder
@@ -409,7 +406,7 @@ else:
 												if url_ != None:
 													category_title = soup.select_one('.alert__title').text.replace("'", "").replace('"', '')
 													return [pages, category_title]
-												return [pages]
+												return pages
 										elif pages == None:
 											await asyncio.sleep(0.2)
 											return await self.get_pages(url_)
@@ -439,8 +436,8 @@ else:
 			name_catalog = re.findall(r'(?<=https:\/\/)(.*?)(?=\.com)', page[2])[0]
 			name_catalog = re.findall(r'(?<=^)(.*?)(?=\.x)', name_catalog)[0]
 			if self.all_albums:
-				num_page = str(regex.findall(r"&page=(.+)", page[2])[0])
-				self.albums[name_catalog] = {num_page: {}}
+				if name_catalog not in self.albums:
+					self.albums[name_catalog] = {}
 				
 			base_url = re.findall(r'(?<=https:\/\/)(.*?)(?=\.com)', page[2])[0]
 			for album in soup.find_all("a", {"class": "album__main"}):
@@ -459,11 +456,12 @@ else:
 							new_href+=st.strip()
 					new_href += 'uid=1'
 
-				title = await self.parse_title(album.get('title'), name_catalog)
+				title = (await self.parse_title(album.get('title'), name_catalog))
 				if title == '':
-					title = await self.parse_title('blank', name_catalog)
+					title = (await self.parse_title('blank', name_catalog))
+
 				if self.all_albums:
-					self.albums[name_catalog][num_page][title] = {"album_link": self.urls+new_href}
+					self.albums[name_catalog][title] = {"album_link": self.urls+new_href}
 				else:
 					self.albums[name_catalog][title] = {"album_link": f"https://{base_url}.com{new_href}", "category_title": page[3][0], "category_id": page[3][1]}
 
@@ -499,7 +497,7 @@ else:
 				elif self.cover == False:
 					album_imgs_links.append(f"https:{src}")
 			if self.all_albums:
-				self.albums[keys[0]][keys[1]][keys[2]]['imgs'] = album_imgs_links
+				self.albums[keys[0]][keys[1]]['imgs'] = album_imgs_links
 			else:
 				if keys == None:
 					if name_catalog not in self.albums:
@@ -517,12 +515,8 @@ else:
 
 		async def get_imgs(self, r):
 			keys = (await self.find_key(self.albums, r[2]))[0]
-			if self.all_albums:
-				album_path = self.albums[keys[0]][keys[1]][keys[2]]
-				album = keys[2]
-			else:
-				album_path = self.albums[keys[0]][keys[1]]
-				album = keys[1]
+			album_path = self.albums[keys[0]][keys[1]]
+			album = keys[1]
 			try:
 				img_title = re.findall(r'/((?:(?!/).)*)$', r[2])[0].split('.')[0] #/((?:(?!/).)*)$
 			except:
@@ -589,10 +583,7 @@ else:
 								await f.write(img_byte_arr)
 						except Exception as e:
 							keys = (await self.find_key(self.albums, r[2]))[0]
-							if self.all_albums:
-								key = self.albums[keys[0]][keys[1]][keys[2]]['album_link']
-							else:
-								key = self.albums[keys[0]][keys[1]]['album_link']
+							key = self.albums[keys[0]][keys[1]]['album_link']
 							if 'unpack requires a buffer of' in repr(e):
 								logger.info(f'{e}:  [{key}, {r[2]}]')
 								await f.write(r[0])
@@ -611,10 +602,8 @@ else:
 				self.bar()
 			except Exception as e:
 				keys = (await self.find_key(self.albums, r[2]))[0]
-				if self.all_albums:
-					key = self.albums[keys[0]][keys[1]][keys[2]]['album_link']
-				else:
-					key = self.albums[keys[0]][keys[1]]['album_link']
+
+				key = self.albums[keys[0]][keys[1]]['album_link']
 				logger.info(traceback.format_exc())
 				logger.info(f'error write file URL: [{key}, {r[2]}]')
 				self.error = f'error write file: {e}'
@@ -638,7 +627,7 @@ else:
 			while True:
 				it+=1
 				if it == 1:
-					if await self.find_key(self.albums[catalog], title) == None and self.all_albums:
+					if title not in self.albums[catalog] and category == False:
 						break
 					elif category:
 						keys_list = await self.find_key(self.albums[catalog], title)
@@ -649,10 +638,8 @@ else:
 									have_title = True
 						elif have_title == False or keys_list == None:
 							break
-					elif title not in self.albums[catalog]:
-						break
 				else:
-					if await self.find_key(self.albums[catalog], f"{title} - {str(it)}") == None and self.all_albums:
+					if f"{title} - {str(it)}" not in self.albums[catalog] and category == False:
 						title = f"{title} - {str(it)}"
 						break
 					elif category:
@@ -665,9 +652,6 @@ else:
 						elif have_title == False or keys_list == None:
 							title = f"{title} - {str(it)}"
 							break
-					elif f"{title} - {str(it)}" not in self.albums[catalog]:
-						title = f"{title} - {str(it)}"
-						break
 					else:
 						continue
 			return title
