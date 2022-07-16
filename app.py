@@ -32,9 +32,9 @@ class App():
 		self.console.print("\nPrograma desenvolvido para te ajudar a baixar \nimagens com qualidade e facilmente do site da [#0ba162]Yupoo[/]!")
 		self.console.print("\n[b #6149ab]Opções[/]")
 		self.console.print("[b #baa6ff]1.[/] Baixe todas as imagens de todos os álbuns. ([bold u #c7383f]pesado[/])")
-		self.console.print("[b #baa6ff]2.[/] Baixar apenas a foto principal de todos álbuns.")
-		self.console.print("[b #baa6ff]3.[/] Inserir álbuns para baixar todas as fotos.")
-		self.console.print("[b #baa6ff]4.[/] Inserir álbuns para baixar apenas a foto principal.")
+		self.console.print("[b #baa6ff]2.[/] Baixe apenas a foto principal de todos álbuns.")
+		self.console.print("[b #baa6ff]3.[/] Inserir álbuns ou categorias para baixar todas as fotos.")
+		self.console.print("[b #baa6ff]4.[/] Inserir álbuns ou categorias para baixar apenas a foto principal.")
 
 		self.edit_rich()
 		self.opt = prompt.Prompt.ask("\n[b #6149ab]>>[/]  Selecione uma opção", choices=["1", "2", "3", "4"], default="3")
@@ -216,7 +216,6 @@ class App():
 	def default(self):
 		self.console.print(self.st1np)
 		self.console.print("[#baa6ff]Aplicação [#6149ab b]v1.4.0[/], desenvolvida por [#6149ab b]st1np[/]![/]\n")
-		self.console.print("[#ffffff]Github:[/] [default]https://github.com/st1np/[/]")
 		self.console.print("[#ffffff]Telegram:[/] [default]https://t.me/appyupoo[/]")
 		self.console.print("[#ffffff]Sugestões, reportar bugs:[/] [default](12) 9 8137-2735[/]\n")
 		self.console.print(Panel.fit("[#ffffff]Considere apoiar o [bold #4912ff]PROJETO[/][/]!\n[#ffffff]Chave [bold u #0ba162]PIX[/]: [bold #00ff73](12) 9 8137-2735[/]", title="[blink #4912ff]***[/]", subtitle="[blink #4912ff]***[/]"))
