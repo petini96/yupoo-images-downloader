@@ -16,6 +16,7 @@ import re
 from tkinter import filedialog
 import tkinter as tk
 import json
+import requests
 
 from edit_rich import make_prompt, render_default
 
@@ -24,6 +25,9 @@ clear()
 
 class App():
 	def __init__(self):
+		self.version = '1.4.0'
+		self.update_message = self.search_for_updates()
+
 		self.console = Console(color_system="auto")
 		self.st1np = self.parse_nick()
 
@@ -70,6 +74,30 @@ class App():
 			os.execl(sys.executable, sys.executable, *sys.argv)
 		else:
 			sys.exit()
+
+	def search_for_updates(self):
+		def version_to_num(v):
+			v = v.split('.')
+			v_total = 0
+			for i,n in enumerate(reversed(v)):
+				v_total += int(f'{n}{"0"*i}')
+			return v_total
+
+		try:
+			resp = requests.get('https://st1np.live/api/avisos', timeout=10)
+			resp_json = json.loads(resp.text)
+
+			new_version = version_to_num(resp_json['version'])
+			if new_version > version_to_num(self.version):
+				return f"[#baa6ff]Nova versão [#6149ab b]{resp_json['version']}[/] disponível para download,\nacesse o Telegram ou baixe diretamente pelo link:[/] [default]https://st1np.live/[/]"
+			else:
+				warning_message = resp_json['warning']
+				if warning_message != '':
+					return f"[#baa6ff]{warning_message}[/]"
+				else:
+					return None
+		except requests.ReadTimeout:
+			pass
 
 	def execute_answer(self):
 		try:
@@ -214,8 +242,11 @@ class App():
 					self.urls.append(url)
 
 	def default(self):
+		if self.update_message:
+			self.console.print(Panel.fit(self.update_message, title="[blink #4912ff]AVISO[/]", subtitle="[blink #4912ff]AVISO[/]"))
+
 		self.console.print(self.st1np)
-		self.console.print("[#baa6ff]Aplicação [#6149ab b]v1.4.0[/], desenvolvida por [#6149ab b]st1np[/]![/]\n")
+		self.console.print(f"[#baa6ff]Aplicação [#6149ab b]v{self.version}[/], desenvolvida por [#6149ab b]st1np[/]![/]\n")
 		self.console.print("[#ffffff]Telegram:[/] [default]https://t.me/appyupoo[/]")
 		self.console.print("[#ffffff]Sugestões, reportar bugs:[/] [default](12) 9 8137-2735[/]\n")
 		self.console.print(Panel.fit("[#ffffff]Considere apoiar o [bold #4912ff]PROJETO[/][/]!\n[#ffffff]Chave [bold u #0ba162]PIX[/]: [bold #00ff73](12) 9 8137-2735[/]", title="[blink #4912ff]***[/]", subtitle="[blink #4912ff]***[/]"))
