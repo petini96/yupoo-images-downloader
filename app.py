@@ -1,4 +1,3 @@
-from main import YupooDownloader
 import os
 import sys
 os.environ['PYTHONASYNCIODEBUG'] = '1'
@@ -128,8 +127,9 @@ class App():
 					choose_path()
 			else:
 				choose_path()
-					
+			
 			clear()
+			from main import YupooDownloader
 			self.default()
 			if self.opt == "1" or self.opt == "2":
 				if self.opt == "1":
