@@ -24,7 +24,7 @@ clear()
 
 class App():
 	def __init__(self):
-		self.version = '1.4.0'
+		self.version = '1.4.1'
 		self.update_message = self.search_for_updates()
 
 		self.console = Console(color_system="auto")

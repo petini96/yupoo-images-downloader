@@ -14,7 +14,7 @@ else:
 	fh.setFormatter(formatter)
 	logger.addHandler(fh)
 
-	logger.info("start v1.4.0")
+	logger.info("start v1.4.1")
 
 	import winshell
 	from win32com.client import Dispatch
