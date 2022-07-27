@@ -60,11 +60,11 @@ else:
 
 			self.headers = {
 			'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.54 Safari/537.36', 'referer': "https://yupoo.com/"}
-			self.timeout_connect = [25]
+			self.timeout_connect = [30]
 			self.connect_control = [0]
 			self.connect_errors = [0]
 
-			self.timeout_read = [25]
+			self.timeout_read = [30]
 			self.read_control = [0]
 			self.read_errors = [0]
 
@@ -301,16 +301,16 @@ else:
 					control[0] = 0
 					errors[0] = 0
 
-			if self.connect_control[0] // 10 >= 1:
-				auto_timeout(self.timeout_connect, self.connect_control, self.connect_errors, 4, 4, "connect")
-			if self.read_control[0] // 10 >= 1:
-				auto_timeout(self.timeout_read, self.read_control, self.read_errors, 4, 4, "read")
 
-			self.connect_control[0] +=1
-			self.read_control[0] +=1
 			
 			async with self.sem:
 				async def req():
+					self.connect_control[0] +=1
+					self.read_control[0] +=1
+					if self.connect_control[0] // 10 >= 1:
+						auto_timeout(self.timeout_connect, self.connect_control, self.connect_errors, 4, 8, "connect")
+					if self.read_control[0] // 10 >= 1:
+						auto_timeout(self.timeout_read, self.read_control, self.read_errors, 4, 8, "read")
 					try:
 						if len(self.connections_alive) < 120 or url in self.connections_alive:
 							if url not in self.connections_alive:
@@ -342,9 +342,6 @@ else:
 						await req()
 					except aiohttp.ClientPayloadError:
 						logger.info('error: ClientPayloadError')
-						await req()
-					except aiohttp.ClientError:
-						logger.info('error: ClientError')
 						await req()
 					except Exception as e:
 						if "Timeout on reading data from socket" in str(e):
