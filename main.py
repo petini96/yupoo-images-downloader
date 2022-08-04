@@ -197,34 +197,35 @@ else:
 					for catalog in self.albums:
 							for album in self.albums[catalog]:
 								name_catalog = catalog
-								for img in self.albums[catalog][album]['imgs']:
-									img_link = img
-									if img_link == "video": continue
-									img_title = re.findall(r'/((?:(?!/).)*)$', img_link)[0].split('.')[0] #/((?:(?!/).)*)$
-									path = f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/albuns/{album}/{img_title}.jpeg"
-									if os.path.exists(path):
-										without_category_path = f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/categorias/sem categoria/{album}.lnk"
-										if os.path.exists(without_category_path):
-											os.unlink(without_category_path)
-											if len(os.listdir(f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/categorias/sem categoria/")) == 0:
-												os.rmdir(f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/categorias/sem categoria/")
-											album_path = self.albums[catalog][album]
-											if 'category_title' in album_path:
-												save_path = self.normpath(f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/categorias/{album_path['category_title']}/")
-												target = self.normpath(f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/albuns/{album}")  # The shortcut target file or folder
-												work_dir = self.normpath(f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/albuns/")  # The parent folder of your file
+								if 'imgs' in self.albums[catalog][album]:
+									for img in self.albums[catalog][album]['imgs']:
+										img_link = img
+										if img_link == "video": continue
+										img_title = re.findall(r'/((?:(?!/).)*)$', img_link)[0].split('.')[0] #/((?:(?!/).)*)$
+										path = f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/albuns/{album}/{img_title}.jpeg"
+										if os.path.exists(path):
+											without_category_path = f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/categorias/sem categoria/{album}.lnk"
+											if os.path.exists(without_category_path):
+												os.unlink(without_category_path)
+												if len(os.listdir(f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/categorias/sem categoria/")) == 0:
+													os.rmdir(f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/categorias/sem categoria/")
+												album_path = self.albums[catalog][album]
+												if 'category_title' in album_path:
+													save_path = self.normpath(f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/categorias/{album_path['category_title']}/")
+													target = self.normpath(f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/albuns/{album}")  # The shortcut target file or folder
+													work_dir = self.normpath(f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/albuns/")  # The parent folder of your file
 
-												shell = Dispatch('WScript.Shell')
+													shell = Dispatch('WScript.Shell')
 
-												if os.path.exists(save_path) == False:
-													os.makedirs(save_path)
-												shortcut = shell.CreateShortCut(f"{save_path}\{album}.lnk")
-												shortcut.Targetpath = target
-												shortcut.WorkingDirectory = work_dir
-												shortcut.save()
-												
-										continue
-									self.tasks.append(asyncio.ensure_future(self.async_req(img_link, self.get_imgs)))
+													if os.path.exists(save_path) == False:
+														os.makedirs(save_path)
+													shortcut = shell.CreateShortCut(f"{save_path}\{album}.lnk")
+													shortcut.Targetpath = target
+													shortcut.WorkingDirectory = work_dir
+													shortcut.save()
+													
+											continue
+										self.tasks.append(asyncio.ensure_future(self.async_req(img_link, self.get_imgs)))
 					if len(self.tasks) > 0:
 						self.console.print('\n[#6149ab]Baixando as imagens dos álbuns[#6149ab]')
 						with alive_bar(len(self.tasks), length=35, bar="squares", spinner="classic", elapsed="em {elapsed}") as self.bar:
@@ -234,36 +235,37 @@ else:
 						for catalog in self.albums:
 							for album in self.albums[catalog]:
 								name_catalog = catalog
-								for img in self.albums[catalog][album]['imgs']:
-									if img == "video":
-										continue
-									img_link = img
-									if img_link == "video": continue
-									img_title = re.findall(r'/((?:(?!/).)*)$', img_link)[0].split('.')[0] #/((?:(?!/).)*)$
-									path = f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/albuns/{album}/{img_title}.jpeg"
-									if os.path.exists(path):
-										without_category_path = f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/categorias/sem categoria/{album}.lnk"
-										if os.path.exists(without_category_path):
-											os.unlink(without_category_path)
-											if len(os.listdir(f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/categorias/sem categoria/")) == 0:
-												os.rmdir(f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/categorias/sem categoria/")
-											album_path = self.albums[catalog][album]
-											if 'category_title' in album_path:
-												save_path = self.normpath(f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/categorias/{album_path['category_title']}/")
-												target = self.normpath(f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/albuns/{album}")  # The shortcut target file or folder
-												work_dir = self.normpath(f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/albuns/")  # The parent folder of your file
+								if 'imgs' in self.albums[catalog][album]:
+									for img in self.albums[catalog][album]['imgs']:
+										if img == "video":
+											continue
+										img_link = img
+										if img_link == "video": continue
+										img_title = re.findall(r'/((?:(?!/).)*)$', img_link)[0].split('.')[0] #/((?:(?!/).)*)$
+										path = f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/albuns/{album}/{img_title}.jpeg"
+										if os.path.exists(path):
+											without_category_path = f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/categorias/sem categoria/{album}.lnk"
+											if os.path.exists(without_category_path):
+												os.unlink(without_category_path)
+												if len(os.listdir(f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/categorias/sem categoria/")) == 0:
+													os.rmdir(f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/categorias/sem categoria/")
+												album_path = self.albums[catalog][album]
+												if 'category_title' in album_path:
+													save_path = self.normpath(f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/categorias/{album_path['category_title']}/")
+													target = self.normpath(f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/albuns/{album}")  # The shortcut target file or folder
+													work_dir = self.normpath(f"{OUTPUT_PATH}/fotos_yupoo/{name_catalog}/albuns/")  # The parent folder of your file
 
-												shell = Dispatch('WScript.Shell')
+													shell = Dispatch('WScript.Shell')
 
-												if os.path.exists(save_path) == False:
-													os.makedirs(save_path)
-												shortcut = shell.CreateShortCut(f"{save_path}\{album}.lnk")
-												shortcut.Targetpath = target
-												shortcut.WorkingDirectory = work_dir
-												shortcut.save()
-												
-										continue
-									self.tasks.append(asyncio.ensure_future(self.async_req(img_link, self.get_imgs)))
+													if os.path.exists(save_path) == False:
+														os.makedirs(save_path)
+													shortcut = shell.CreateShortCut(f"{save_path}\{album}.lnk")
+													shortcut.Targetpath = target
+													shortcut.WorkingDirectory = work_dir
+													shortcut.save()
+													
+											continue
+										self.tasks.append(asyncio.ensure_future(self.async_req(img_link, self.get_imgs)))
 						self.start_time = perf_counter()
 						if len(self.tasks) > 0:
 							logger.info(f"[all_albums == False] downloading imgs in albums: {len(self.tasks)}")
@@ -348,7 +350,7 @@ else:
 							self.read_errors[0] += 1
 						elif "Connection timeout to host" in str(e):
 							self.connect_errors[0] += 1
-						elif "TimeoutError: [Errno 10060] Connect call failed" in str(e):
+						elif "Connect call failed" in str(e):
 							logger.info(e)
 							await req()
 						elif "[WinError 10054]" in str(e):
@@ -359,10 +361,6 @@ else:
 							raise self.FatalException()
 						elif "No space left on device" in str(e):
 							self.error = 'sem espaço no computador para baixar as imagens!"'
-							raise self.FatalException()
-						else:
-							logger.info(f"erro async: {e}")
-							self.error = 'erro async!'
 							raise self.FatalException()
 						await req()
 				await req()
